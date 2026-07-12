@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/colle-salario-tracciatura/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tracciatura Boulder — A.S.D. Colle Salario</title>
+
+    <!-- PWA: manifest per Android/Chrome -->
+    <link rel="manifest" href="/colle-salario-tracciatura/manifest.json" />
+    <meta name="theme-color" content="#0c1445" />
+
+    <!-- PWA: iOS/Safari non legge il manifest per la modalità standalone,
+         serve questi meta tag dedicati -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tracciatura" />
+    <link rel="apple-touch-icon" href="/colle-salario-tracciatura/apple-touch-icon.png" />
   </head>
   <body>
     <div id="root"></div>
