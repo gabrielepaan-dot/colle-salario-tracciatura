@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticato() {
+      return request.auth != null;
+    }
+
+    function tracciatoreIdDiUid(uid) {
+      return get(/databases/$(database)/documents/tracciatoriByUid/$(uid)).data.tracciatoreId;
+    }
+
+    // Verifica SEMPRE lo stato admin "live" sul documento tracciatori
+    // (mai una copia/cache), così se un admin viene rimosso o retrocesso,
+    // perde i permessi immediatamente, senza bisogno di rifare login.
+    function isAdmin() {
+      return autenticato()
+        && exists(/databases/$(database)/documents/tracciatoriByUid/$(request.auth.uid))
+        && get(/databases/$(database)/documents/tracciatori/$(tracciatoreIdDiUid(request.auth.uid))).data.isAdmin == true;
+    }
+
+    // Lista tracciatori: lettura pubblica, scrittura (aggiungi/rimuovi/
+    // promuovi) solo admin.
+    match /tracciatori/{tracciatoreId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Collegamento device (uid anonimo) -> tracciatore scelto al login.
+    // Chiunque sia autenticato può scrivere SOLO il proprio documento
+    // (request.auth.uid == uid), e solo verso un tracciatore che esiste
+    // davvero. Non può in nessun modo scrivere isAdmin qui: quel campo
+    // non esiste in questa collezione, viene sempre letto "dal vivo"
+    // dalla collezione tracciatori tramite isAdmin() sopra — impossibile
+    // auto-promuoversi admin, a differenza del bug che avevamo trovato
+    // nella prima versione delle policy RLS di Supabase.
+    match /tracciatoriByUid/{uid} {
+      allow read: if true;
+      allow write: if autenticato()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['tracciatoreId'])
+        && exists(/databases/$(database)/documents/tracciatori/$(request.resource.data.tracciatoreId));
+    }
+
+    // Boulder: lettura sempre pubblica. Scrittura per chiunque sia
+    // autenticato (anche solo in modo anonimo) — coerente con "permessi
+    // liberi tra tracciatori loggati" del requisito originale.
+    match /boulder/{boulderId} {
+      allow read: if true;
+      allow create, update: if autenticato();
+      allow delete: if false; // mai eliminazione definitiva, solo stato 'vuota'
+    }
+
+    // Storico: lettura pubblica, scrittura/correzione per chiunque sia
+    // autenticato (correggere/cancellare una voce errata è previsto).
+    match /storico/{storicoId} {
+      allow read: if true;
+      allow create, update, delete: if autenticato();
+    }
+  }
+}
