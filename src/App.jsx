@@ -1,26 +1,26 @@
 import { useState } from 'react'
+import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
 import LoginScreen from './components/LoginScreen'
 import Home from './components/Home'
+import SettoreDetail from './components/SettoreDetail'
+import TuttiBoulder from './components/TuttiBoulder'
 import Statistiche from './components/Statistiche'
 import Profilo from './components/Profilo'
 import BottomNav from './components/BottomNav'
 
-export default function App() {
-  const { tracciatore, loading, login, logout, error } = useAuth()
+function AppShell() {
+  const { tracciatore, login, logout, error } = useAuth()
   const [mostraLogin, setMostraLogin] = useState(false)
   const [vista, setVista] = useState('home') // 'home' | 'filtri' | 'statistiche' | 'profilo'
-  const [mostraFiltri, setMostraFiltri] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  // Il tab "Filtri" non è una pagina a sé: resta sulla Home ma apre il
-  // pannello filtri già presente lì (evita di duplicare la UI dei filtri).
+  // Le tab della bottom nav vivono tutte sulla route "/": se l'utente le
+  // clicca mentre è nel dettaglio di un settore, si torna anche a "/".
   function cambiaVista(nuovaVista) {
-    if (nuovaVista === 'filtri') {
-      setVista('home')
-      setMostraFiltri(true)
-    } else {
-      setVista(nuovaVista)
-    }
+    setVista(nuovaVista)
+    if (location.pathname !== '/') navigate('/')
   }
 
   if (mostraLogin && !tracciatore) {
@@ -39,21 +39,34 @@ export default function App() {
     <div className="sm:pl-48">
       <BottomNav vista={vista} onCambiaVista={cambiaVista} />
 
-      {vista === 'home' && (
-        <Home
-          tracciatoreLoggato={tracciatore}
-          mostraFiltri={mostraFiltri}
-          setMostraFiltri={setMostraFiltri}
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
+              {vista === 'home' && <Home />}
+              {vista === 'filtri' && <TuttiBoulder tracciatoreLoggato={tracciatore} />}
+              {vista === 'statistiche' && <Statistiche tracciatoreLoggato={tracciatore} />}
+              {vista === 'profilo' && (
+                <Profilo
+                  tracciatoreLoggato={tracciatore}
+                  onApriLogin={() => setMostraLogin(true)}
+                  onLogout={logout}
+                />
+              )}
+            </>
+          }
         />
-      )}
-      {vista === 'statistiche' && <Statistiche tracciatoreLoggato={tracciatore} />}
-      {vista === 'profilo' && (
-        <Profilo
-          tracciatoreLoggato={tracciatore}
-          onApriLogin={() => setMostraLogin(true)}
-          onLogout={logout}
-        />
-      )}
+        <Route path="/settore/:slug" element={<SettoreDetail tracciatoreLoggato={tracciatore} />} />
+      </Routes>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <HashRouter>
+      <AppShell />
+    </HashRouter>
   )
 }
