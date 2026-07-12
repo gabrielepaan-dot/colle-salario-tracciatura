@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '../lib/firebase'
-import { LISTA_SETTORI, LISTA_COLORI_PRESE, LISTA_COLORI_GRADO, COLORI_PRESE, COLORI_GRADO } from '../lib/colori'
+import { LISTA_SETTORI, LISTA_COLORI_PRESE, LISTA_COLORI_GRADO, COLORI_PRESE } from '../lib/colori'
+import GradoStar from './GradoStar'
 
 function oggiISO() {
   return new Date().toISOString().slice(0, 10)
@@ -22,14 +23,17 @@ export default function BoulderForm({
   const [settore, setSettore] = useState(boulderEsistente?.settore || settoreIniziale || LISTA_SETTORI[0])
   const [colorePrese, setColorePrese] = useState(boulderEsistente?.colorePrese || '')
   const [coloreGrado, setColoreGrado] = useState(boulderEsistente?.coloreGrado || '')
-  const [stato, setStato] = useState(boulderEsistente?.stato || 'attiva')
   const [note, setNote] = useState(boulderEsistente?.note || '')
   const [dataEvento, setDataEvento] = useState(oggiISO())
   const [tracciatoreId, setTracciatoreId] = useState(tracciatoreLoggato?.id || '')
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState(null)
 
-  const valido = settore && colorePrese && coloreGrado && stato && dataEvento && tracciatoreId
+  // Un boulder nasce sempre attivo; lo stato "non attivo" si ottiene solo
+  // rimuovendolo (cestino in Dettaglio settore / Filtri), mai da qui.
+  const stato = mode === 'create' ? 'attiva' : boulderEsistente?.stato || 'attiva'
+
+  const valido = settore && colorePrese && coloreGrado && dataEvento && tracciatoreId
 
   async function handleSalva() {
     if (!valido || salvando) return
@@ -165,37 +169,11 @@ export default function BoulderForm({
                     attivo ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-700'
                   }`}
                 >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full border border-black/10"
-                    style={{ backgroundColor: COLORI_GRADO[g] }}
-                  />
+                  <GradoStar coloreGrado={g} size="sm" />
                   {g}
                 </button>
               )
             })}
-          </div>
-        </div>
-
-        {/* Stato */}
-        <div className="mb-4">
-          <p className="text-xs text-gray-400 mb-2">Stato</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setStato('attiva')}
-              className={`px-3 py-1.5 rounded-full text-sm border ${
-                stato === 'attiva' ? 'bg-verde text-white border-verde' : 'border-gray-200 text-gray-600'
-              }`}
-            >
-              Attiva
-            </button>
-            <button
-              onClick={() => setStato('vuota')}
-              className={`px-3 py-1.5 rounded-full text-sm border ${
-                stato === 'vuota' ? 'bg-gray-500 text-white border-gray-500' : 'border-gray-200 text-gray-600'
-              }`}
-            >
-              Vuota / rimossa
-            </button>
           </div>
         </div>
 

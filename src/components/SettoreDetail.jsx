@@ -4,6 +4,8 @@ import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
+import ConfermaDialog from './ConfermaDialog'
+import { useCancellazioneBoulder } from '../lib/useCancellazioneBoulder'
 
 export default function SettoreDetail({ tracciatoreLoggato }) {
   const { slug } = useParams()
@@ -16,6 +18,8 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
   const [errore, setErrore] = useState(null)
   const [ordine, setOrdine] = useState('desc')
   const [formAperto, setFormAperto] = useState(null)
+  const { daEliminare, eliminando, erroreEliminazione, richiediEliminazione, annulla, conferma } =
+    useCancellazioneBoulder(() => carica())
 
   const carica = useCallback(async () => {
     setCaricamento(true)
@@ -24,6 +28,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
       const q = query(
         collection(db, 'boulder'),
         where('settore', '==', settore),
+        where('stato', '==', 'attiva'),
         orderBy('dataUltimoCambio', ordine)
       )
       const snap = await getDocs(q)
@@ -125,9 +130,25 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
               boulder={b}
               cliccabile={!!tracciatoreLoggato}
               onClick={() => setFormAperto({ mode: 'update', boulderEsistente: b })}
+              mostraCestino={!!tracciatoreLoggato}
+              onElimina={() => richiediEliminazione(b)}
             />
           ))}
         </div>
+      )}
+
+      {erroreEliminazione && (
+        <p className="text-rosso text-sm mt-3 text-center">{erroreEliminazione}</p>
+      )}
+
+      {daEliminare && (
+        <ConfermaDialog
+          titolo="Rimuovere questo boulder?"
+          messaggio={`"${daEliminare.colorePrese}" tracciato da ${daEliminare.tracciatoreNome}. L'azione non è reversibile dall'app.`}
+          onAnnulla={annulla}
+          onConferma={conferma}
+          inCorso={eliminando}
+        />
       )}
 
       {formAperto && (

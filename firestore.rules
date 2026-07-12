@@ -48,7 +48,13 @@ service cloud.firestore {
     match /boulder/{boulderId} {
       allow read: if true;
       allow create, update: if autenticato();
-      allow delete: if false; // mai eliminazione definitiva, solo stato 'vuota'
+      // Cancellazione reale consentita solo entro 24 ore dalla creazione
+      // (vedi src/lib/eliminaBoulder.js): oltre le 24 ore, o se manca un
+      // timestamp di creazione affidabile, l'app fa un soft-delete via
+      // update (stato: 'rimossa'), mai una delete vera — qui la neghiamo.
+      allow delete: if autenticato()
+        && resource.data.creatoIl is timestamp
+        && request.time < resource.data.creatoIl + duration.value(24, 'h');
     }
 
     // Storico: lettura pubblica, scrittura/correzione per chiunque sia

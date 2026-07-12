@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import BoulderCard from './BoulderCard'
+import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
+import ConfermaDialog from './ConfermaDialog'
+import { useCancellazioneBoulder } from '../lib/useCancellazioneBoulder'
 
 export default function TuttiBoulder({ tracciatoreLoggato }) {
   const [boulders, setBoulders] = useState([])
@@ -16,7 +18,11 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
     setCaricamento(true)
     setErrore(null)
     try {
-      const q = query(collection(db, 'boulder'), orderBy('dataUltimoCambio', ordine))
+      const q = query(
+        collection(db, 'boulder'),
+        where('stato', '==', 'attiva'),
+        orderBy('dataUltimoCambio', ordine)
+      )
       const snap = await getDocs(q)
       setBoulders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     } catch (e) {
@@ -25,6 +31,9 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
     }
     setCaricamento(false)
   }, [ordine])
+
+  const { daEliminare, eliminando, erroreEliminazione, richiediEliminazione, annulla, conferma } =
+    useCancellazioneBoulder(() => carica())
 
   useEffect(() => {
     carica()
@@ -101,16 +110,33 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
       )}
 
       {!caricamento && !errore && boulders.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
           {boulders.map((b) => (
-            <BoulderCard
+            <BoulderRow
               key={b.id}
               boulder={b}
-              tracciatoreLoggato={tracciatoreLoggato}
-              onAggiorna={(boulder) => setFormAperto({ mode: 'update', boulderEsistente: boulder })}
+              mostraSettore
+              cliccabile={!!tracciatoreLoggato}
+              onClick={() => setFormAperto({ mode: 'update', boulderEsistente: b })}
+              mostraCestino={!!tracciatoreLoggato}
+              onElimina={() => richiediEliminazione(b)}
             />
           ))}
         </div>
+      )}
+
+      {erroreEliminazione && (
+        <p className="text-rosso text-sm mt-3 text-center">{erroreEliminazione}</p>
+      )}
+
+      {daEliminare && (
+        <ConfermaDialog
+          titolo="Rimuovere questo boulder?"
+          messaggio={`"${daEliminare.colorePrese}" — ${daEliminare.settore}. L'azione non è reversibile dall'app.`}
+          onAnnulla={annulla}
+          onConferma={conferma}
+          inCorso={eliminando}
+        />
       )}
 
       {formAperto && (
