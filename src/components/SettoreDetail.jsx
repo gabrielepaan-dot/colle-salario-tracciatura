@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import BoulderCard from './BoulderCard'
+import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
 
 export default function SettoreDetail({ tracciatoreLoggato }) {
@@ -118,13 +118,13 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
       )}
 
       {!caricamento && !errore && boulders.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
           {boulders.map((b) => (
-            <BoulderCard
+            <BoulderRow
               key={b.id}
               boulder={b}
-              tracciatoreLoggato={tracciatoreLoggato}
-              onAggiorna={(boulder) => setFormAperto({ mode: 'update', boulderEsistente: boulder })}
+              cliccabile={!!tracciatoreLoggato}
+              onClick={() => setFormAperto({ mode: 'update', boulderEsistente: b })}
             />
           ))}
         </div>
