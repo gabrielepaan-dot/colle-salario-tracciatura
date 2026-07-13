@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, doc, getDocs, orderBy, query, updateDoc, where, writeBatch } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { COLORI_PRESE } from '../lib/colori'
 import { formattaTempoFa } from '../lib/date'
@@ -22,9 +22,14 @@ export default function Cestino({ tracciatoreLoggato }) {
     setCaricamento(true)
     setErrore(null)
     try {
-      const q = query(collection(db, 'boulder'), where('stato', '==', 'rimossa'), orderBy('rimossoIl', 'desc'))
+      // Niente orderBy nella query: eviterebbe di dover creare un indice
+      // composito manuale su Firebase. Per una lista così piccola ordinare
+      // qui in JS non ha alcun impatto pratico.
+      const q = query(collection(db, 'boulder'), where('stato', '==', 'rimossa'))
       const snap = await getDocs(q)
-      const tutti = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const tutti = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.rimossoIl?.toMillis?.() ?? 0) - (a.rimossoIl?.toMillis?.() ?? 0))
 
       const ora = Date.now()
       const daPurgare = tutti.filter((b) => {
