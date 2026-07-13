@@ -20,7 +20,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
   const [ordine, setOrdine] = useState('asc')
   const [formAperto, setFormAperto] = useState(null)
   const { daEliminare, inAttesaAnnulla, erroreEliminazione, richiediEliminazione, annulla, conferma, annullaEliminazione } =
-    useCancellazioneBoulder(() => carica())
+    useCancellazioneBoulder(() => carica(), tracciatoreLoggato)
 
   const carica = useCallback(async () => {
     setCaricamento(true)

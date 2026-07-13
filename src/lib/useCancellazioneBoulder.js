@@ -12,7 +12,7 @@ const DURATA_ANNULLA_MS = 4500
 // di annullare senza che sia mai scritto nulla su Firestore. Solo allo
 // scadere del timer si esegue la cancellazione reale (logica invariata in
 // eliminaBoulder.js).
-export function useCancellazioneBoulder(onCompletata) {
+export function useCancellazioneBoulder(onCompletata, tracciatoreLoggato) {
   const [daEliminare, setDaEliminare] = useState(null)
   const [inAttesaAnnulla, setInAttesaAnnulla] = useState(null)
   const [erroreEliminazione, setErroreEliminazione] = useState(null)
@@ -31,7 +31,7 @@ export function useCancellazioneBoulder(onCompletata) {
 
   async function eseguiEliminazione(boulder) {
     try {
-      await eliminaBoulder(boulder)
+      await eliminaBoulder(boulder, tracciatoreLoggato?.nome)
       onCompletata()
     } catch (e) {
       setErroreEliminazione('Connessione assente, riprova. Se il problema persiste la rimozione non è andata a buon fine.')

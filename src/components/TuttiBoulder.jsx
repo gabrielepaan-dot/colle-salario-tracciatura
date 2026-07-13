@@ -34,7 +34,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
   }, [ordine])
 
   const { daEliminare, inAttesaAnnulla, erroreEliminazione, richiediEliminazione, annulla, conferma, annullaEliminazione } =
-    useCancellazioneBoulder(() => carica())
+    useCancellazioneBoulder(() => carica(), tracciatoreLoggato)
 
   useEffect(() => {
     carica()

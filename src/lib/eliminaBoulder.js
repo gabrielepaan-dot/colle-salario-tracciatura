@@ -1,4 +1,4 @@
-import { doc, deleteDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore'
+import { doc, deleteDoc, updateDoc, collection, query, where, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 
 const VENTIQUATTRO_ORE_MS = 24 * 60 * 60 * 1000
@@ -12,7 +12,7 @@ const VENTIQUATTRO_ORE_MS = 24 * 60 * 60 * 1000
 // avvenuto, non una svista da annullare.
 // Se manca un timestamp di creazione affidabile (boulder storici pre-esistenti),
 // si tratta sempre come "oltre le 24 ore" → soft-delete, mai cancellazione reale.
-export async function eliminaBoulder(boulder) {
+export async function eliminaBoulder(boulder, tracciatoreNome) {
   const creatoIlDate = boulder.creatoIl?.toDate ? boulder.creatoIl.toDate() : null
   const entroFinestra = creatoIlDate && Date.now() - creatoIlDate.getTime() < VENTIQUATTRO_ORE_MS
 
@@ -23,6 +23,13 @@ export async function eliminaBoulder(boulder) {
     storicoSnap.forEach((s) => batch.delete(s.ref))
     await batch.commit()
   } else {
-    await updateDoc(doc(db, 'boulder', boulder.id), { stato: 'rimossa' })
+    // rimossoDa/rimossoIl alimentano la pagina Cestino (chi e quando), e
+    // rimossoIl è anche il riferimento per la pulizia automatica dopo 7
+    // giorni (vedi Cestino.jsx).
+    await updateDoc(doc(db, 'boulder', boulder.id), {
+      stato: 'rimossa',
+      rimossoDa: tracciatoreNome || null,
+      rimossoIl: serverTimestamp(),
+    })
   }
 }

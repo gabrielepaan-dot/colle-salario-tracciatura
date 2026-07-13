@@ -7,6 +7,7 @@ import SettoreDetail from './components/SettoreDetail'
 import TuttiBoulder from './components/TuttiBoulder'
 import Statistiche from './components/Statistiche'
 import Profilo from './components/Profilo'
+import Cestino from './components/Cestino'
 import BottomNav from './components/BottomNav'
 
 function AppShell() {
@@ -58,6 +59,7 @@ function AppShell() {
           }
         />
         <Route path="/settore/:slug" element={<SettoreDetail tracciatoreLoggato={tracciatore} />} />
+        <Route path="/cestino" element={<Cestino tracciatoreLoggato={tracciatore} />} />
       </Routes>
     </div>
   )
