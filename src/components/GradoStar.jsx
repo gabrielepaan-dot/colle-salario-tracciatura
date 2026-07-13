@@ -12,7 +12,7 @@ const DIMENSIONI = {
 // due implementazioni parallele dello stesso indicatore.
 export default function GradoStar({ coloreGrado, size = 'md' }) {
   const impostato = !!coloreGrado && COLORI_GRADO[coloreGrado] !== undefined
-  const colore = impostato ? COLORI_GRADO[coloreGrado] : '#D1D5DB'
+  const colore = impostato ? COLORI_GRADO[coloreGrado] : '#111111'
   const { box, star } = DIMENSIONI[size] || DIMENSIONI.md
 
   return (
@@ -22,7 +22,7 @@ export default function GradoStar({ coloreGrado, size = 'md' }) {
     >
       <span className="absolute inset-0 rounded-full bg-white/70" />
       <span className={`relative ${star} leading-none`} style={{ color: colore }}>
-        {impostato ? '★' : '☆'}
+        {impostato ? '★' : '?'}
       </span>
     </span>
   )

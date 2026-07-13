@@ -3,6 +3,16 @@ import GradoStar from './GradoStar'
 import { COLORI_PRESE, testoLeggibileSu } from '../lib/colori'
 import { formattaDataCompatta, giorniFaCompatto } from '../lib/date'
 
+// Solo per lo sfondo dell'intera riga: in COLORI_PRESE "bianco" è un grigio
+// medio (serve a restare leggibile come testo/bordo su sfondo bianco nei
+// chip del form e nel pallino della tabella di creazione), ma qui il colore
+// riempie tutta la riga, quindi un grigio medio si confonde con "nessun
+// colore" — un bianco panna distingue la riga dallo sfondo pagina restando
+// riconoscibile come presa bianca.
+const SFONDO_RIGA_OVERRIDE = {
+  bianco: '#FFFBEB',
+}
+
 // Riga densa "stile Excel" condivisa da Dettaglio settore e dalla vista
 // Filtri: l'intero sfondo è il vero colore prese del boulder, con testo
 // chiaro/scuro scelto per contrasto (non sempre "chiaro": alcuni gialli/
@@ -12,7 +22,7 @@ import { formattaDataCompatta, giorniFaCompatto } from '../lib/date'
 export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick, mostraCestino, onElimina }) {
   const { settore, colorePrese, coloreGrado, tracciatoreNome, dataUltimoCambio } = boulder
 
-  const sfondo = COLORI_PRESE[colorePrese] || '#374151'
+  const sfondo = SFONDO_RIGA_OVERRIDE[colorePrese] || COLORI_PRESE[colorePrese] || '#374151'
   const testo = testoLeggibileSu(sfondo)
   const testoAttenuato = testo === '#FFFFFF' ? 'rgba(255,255,255,0.75)' : 'rgba(17,17,17,0.65)'
 
