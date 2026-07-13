@@ -95,9 +95,9 @@ export default function Statistiche({ tracciatoreLoggato }) {
           perTracciatore[nome] = { nome, totale: 0 }
           ORDINE_GRADI.forEach((g) => (perTracciatore[nome][g] = 0))
         }
-        if (perTracciatore[nome][e.coloreGrado] !== undefined) {
+        perTracciatore[nome].totale++
+        if (e.coloreGrado && perTracciatore[nome][e.coloreGrado] !== undefined) {
           perTracciatore[nome][e.coloreGrado]++
-          perTracciatore[nome].totale++
         }
       })
       const listaClassifica = Object.values(perTracciatore).sort((a, b) => b.totale - a.totale)

@@ -11,17 +11,18 @@ const DIMENSIONI = {
 // bianco/navy dei chip nel form. Usato in entrambi i posti per non avere
 // due implementazioni parallele dello stesso indicatore.
 export default function GradoStar({ coloreGrado, size = 'md' }) {
-  const colore = COLORI_GRADO[coloreGrado] || '#374151'
+  const impostato = !!coloreGrado && COLORI_GRADO[coloreGrado] !== undefined
+  const colore = impostato ? COLORI_GRADO[coloreGrado] : '#D1D5DB'
   const { box, star } = DIMENSIONI[size] || DIMENSIONI.md
 
   return (
     <span
       className={`relative inline-flex items-center justify-center ${box} shrink-0`}
-      title={`Grado: ${coloreGrado}`}
+      title={impostato ? `Grado: ${coloreGrado}` : 'Nessun grado'}
     >
       <span className="absolute inset-0 rounded-full bg-white/70" />
       <span className={`relative ${star} leading-none`} style={{ color: colore }}>
-        ★
+        {impostato ? '★' : '☆'}
       </span>
     </span>
   )
