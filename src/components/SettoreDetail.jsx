@@ -5,6 +5,7 @@ import { db } from '../lib/firebase'
 import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
 import ConfermaDialog from './ConfermaDialog'
+import Toast from './Toast'
 import { useCancellazioneBoulder } from '../lib/useCancellazioneBoulder'
 
 export default function SettoreDetail({ tracciatoreLoggato }) {
@@ -16,9 +17,9 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
   const [tracciatori, setTracciatori] = useState([])
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState(null)
-  const [ordine, setOrdine] = useState('desc')
+  const [ordine, setOrdine] = useState('asc')
   const [formAperto, setFormAperto] = useState(null)
-  const { daEliminare, eliminando, erroreEliminazione, richiediEliminazione, annulla, conferma } =
+  const { daEliminare, inAttesaAnnulla, erroreEliminazione, richiediEliminazione, annulla, conferma, annullaEliminazione } =
     useCancellazioneBoulder(() => carica())
 
   const carica = useCallback(async () => {
@@ -124,7 +125,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
 
       {!caricamento && !errore && boulders.length > 0 && (
         <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
-          {boulders.map((b) => (
+          {boulders.filter((b) => b.id !== inAttesaAnnulla?.id).map((b) => (
             <BoulderRow
               key={b.id}
               boulder={b}
@@ -147,8 +148,11 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
           messaggio={`"${daEliminare.colorePrese}" tracciato da ${daEliminare.tracciatoreNome}. L'azione non è reversibile dall'app.`}
           onAnnulla={annulla}
           onConferma={conferma}
-          inCorso={eliminando}
         />
+      )}
+
+      {inAttesaAnnulla && (
+        <Toast messaggio="Blocco eliminato" testoAzione="Annulla" onAzione={annullaEliminazione} />
       )}
 
       {formAperto && (

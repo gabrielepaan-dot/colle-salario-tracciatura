@@ -4,6 +4,7 @@ import { db } from '../lib/firebase'
 import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
 import ConfermaDialog from './ConfermaDialog'
+import Toast from './Toast'
 import { useCancellazioneBoulder } from '../lib/useCancellazioneBoulder'
 
 export default function TuttiBoulder({ tracciatoreLoggato }) {
@@ -11,7 +12,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
   const [tracciatori, setTracciatori] = useState([])
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState(null)
-  const [ordine, setOrdine] = useState('desc')
+  const [ordine, setOrdine] = useState('asc')
   const [formAperto, setFormAperto] = useState(null)
 
   const carica = useCallback(async () => {
@@ -32,7 +33,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
     setCaricamento(false)
   }, [ordine])
 
-  const { daEliminare, eliminando, erroreEliminazione, richiediEliminazione, annulla, conferma } =
+  const { daEliminare, inAttesaAnnulla, erroreEliminazione, richiediEliminazione, annulla, conferma, annullaEliminazione } =
     useCancellazioneBoulder(() => carica())
 
   useEffect(() => {
@@ -111,7 +112,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
 
       {!caricamento && !errore && boulders.length > 0 && (
         <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
-          {boulders.map((b) => (
+          {boulders.filter((b) => b.id !== inAttesaAnnulla?.id).map((b) => (
             <BoulderRow
               key={b.id}
               boulder={b}
@@ -135,8 +136,11 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
           messaggio={`"${daEliminare.colorePrese}" — ${daEliminare.settore}. L'azione non è reversibile dall'app.`}
           onAnnulla={annulla}
           onConferma={conferma}
-          inCorso={eliminando}
         />
+      )}
+
+      {inAttesaAnnulla && (
+        <Toast messaggio="Blocco eliminato" testoAzione="Annulla" onAzione={annullaEliminazione} />
       )}
 
       {formAperto && (
