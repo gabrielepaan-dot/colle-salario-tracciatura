@@ -8,6 +8,11 @@ function oggiISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// Valore locale usato per la chip "Altri" (tracciatore occasionale, non tra
+// i fissi): non è un id Firestore reale, va tradotto in tracciatoreId: null
+// e tracciatoreNome: "Altri" al momento del salvataggio.
+const TRACCIATORE_ALTRI = '__altri__'
+
 // mode: 'create' | 'update'
 // boulderEsistente: { id, settore, colorePrese, coloreGrado, stato, note, dataUltimoCambio } — richiesto se mode === 'update'
 // settoreIniziale: string — usato solo se mode === 'create' (settore già scelto, es. da un filtro attivo)
@@ -25,7 +30,11 @@ export default function BoulderForm({
   const [coloreGrado, setColoreGrado] = useState(boulderEsistente?.coloreGrado || '')
   const [note, setNote] = useState(boulderEsistente?.note || '')
   const [dataEvento, setDataEvento] = useState(oggiISO())
-  const [tracciatoreId, setTracciatoreId] = useState(tracciatoreLoggato?.id || '')
+  const [tracciatoreId, setTracciatoreId] = useState(() => {
+    if (mode !== 'update') return tracciatoreLoggato?.id || ''
+    if (boulderEsistente?.tracciatoreNome === 'Altri') return TRACCIATORE_ALTRI
+    return boulderEsistente?.tracciatoreId || ''
+  })
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState(null)
 
@@ -94,8 +103,12 @@ export default function BoulderForm({
         // classifica tracciatori conta esattamente N boulder creati.
         righeColori.forEach((colore) => {
           const riga = datiPerColore[colore] || {}
-          const rigaTracciatoreId = riga.tracciatoreId || tracciatoreLoggato?.id || ''
-          const rigaTracciatoreNome = tracciatori.find((t) => t.id === rigaTracciatoreId)?.nome || ''
+          const rigaSelezione = riga.tracciatoreId || tracciatoreLoggato?.id || ''
+          const rigaTracciatoreId = rigaSelezione === TRACCIATORE_ALTRI ? null : rigaSelezione
+          const rigaTracciatoreNome =
+            rigaSelezione === TRACCIATORE_ALTRI
+              ? 'Altri'
+              : tracciatori.find((t) => t.id === rigaSelezione)?.nome || ''
 
           const snapshot = {
             settore,
@@ -135,7 +148,9 @@ export default function BoulderForm({
         // (correzione/inserimento retroattivo), non sovrascriviamo lo stato
         // "corrente" mostrato in Home, per non far "tornare indietro" la
         // card rispetto a un evento già più recente.
-        const tracciatoreNome = tracciatori.find((t) => t.id === tracciatoreId)?.nome || ''
+        const tracciatoreIdDaSalvare = tracciatoreId === TRACCIATORE_ALTRI ? null : tracciatoreId
+        const tracciatoreNome =
+          tracciatoreId === TRACCIATORE_ALTRI ? 'Altri' : tracciatori.find((t) => t.id === tracciatoreId)?.nome || ''
         const eIlPiuRecente = dataEvento >= (boulderEsistente.dataUltimoCambio || '')
         if (eIlPiuRecente) {
           const boulderRef = doc(db, 'boulder', boulderEsistente.id)
@@ -145,7 +160,7 @@ export default function BoulderForm({
             coloreGrado,
             stato,
             note: note || null,
-            tracciatoreId,
+            tracciatoreId: tracciatoreIdDaSalvare,
             tracciatoreNome,
             dataUltimoCambio: dataEvento,
           })
@@ -283,6 +298,7 @@ export default function BoulderForm({
                                     {t.nome}
                                   </option>
                                 ))}
+                                <option value={TRACCIATORE_ALTRI}>Altri</option>
                               </select>
                             </td>
                           </tr>
@@ -332,6 +348,14 @@ export default function BoulderForm({
                       {t.nome}
                     </button>
                   ))}
+                  <button
+                    onClick={() => setTracciatoreId(TRACCIATORE_ALTRI)}
+                    className={`px-3 py-1.5 rounded-full text-sm border ${
+                      tracciatoreId === TRACCIATORE_ALTRI ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    Altri
+                  </button>
                 </div>
               </div>
             </>
