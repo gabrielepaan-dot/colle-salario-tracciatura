@@ -42,6 +42,15 @@ export const LISTA_SETTORI = [
   'Torre Alta', 'Torre bassa arancio',
 ]
 
+export const LISTA_SETTORI_CORDA = Array.from({ length: 10 }, (_, i) => `Corda ${i + 1}`)
+
+// Deriva il tipo ('boulder' | 'corda') dal nome del settore, così le
+// schermate che conoscono solo il settore (es. Dettaglio settore, Cestino)
+// non devono farsi passare esplicitamente il tipo da chi le apre.
+export function tipoDiSettore(settore) {
+  return LISTA_SETTORI_CORDA.includes(settore) ? 'corda' : 'boulder'
+}
+
 export const LISTA_COLORI_PRESE = Object.keys(COLORI_PRESE)
 export const LISTA_COLORI_GRADO = Object.keys(COLORI_GRADO)
 

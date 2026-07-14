@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { tipoDiSettore } from '../lib/colori'
 import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
 import ConfermaDialog from './ConfermaDialog'
@@ -13,6 +14,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState(null)
   const [ordine, setOrdine] = useState('asc')
+  const [tipoAttivo, setTipoAttivo] = useState('boulder')
   const [formAperto, setFormAperto] = useState(null)
 
   const carica = useCallback(async () => {
@@ -21,6 +23,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
     try {
       const q = query(
         collection(db, 'boulder'),
+        where('tipo', '==', tipoAttivo),
         where('stato', '==', 'attiva'),
         orderBy('dataUltimoCambio', ordine)
       )
@@ -31,7 +34,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
       console.error(e)
     }
     setCaricamento(false)
-  }, [ordine])
+  }, [ordine, tipoAttivo])
 
   const { daEliminare, inAttesaAnnulla, erroreEliminazione, richiediEliminazione, annulla, conferma, annullaEliminazione } =
     useCancellazioneBoulder(() => carica(), tracciatoreLoggato)
@@ -70,6 +73,28 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
           </button>
         )}
       </header>
+
+      <div className="mb-4">
+        <p className="text-xs text-gray-400 mb-2">Tipo</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTipoAttivo('boulder')}
+            className={`px-3 py-1.5 rounded-full text-sm border ${
+              tipoAttivo === 'boulder' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+            }`}
+          >
+            Boulder
+          </button>
+          <button
+            onClick={() => setTipoAttivo('corda')}
+            className={`px-3 py-1.5 rounded-full text-sm border ${
+              tipoAttivo === 'corda' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+            }`}
+          >
+            Corda
+          </button>
+        </div>
+      </div>
 
       <div className="mb-4">
         <p className="text-xs text-gray-400 mb-2">Ordina per data</p>
@@ -147,6 +172,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
         <BoulderForm
           mode={formAperto.mode}
           boulderEsistente={formAperto.boulderEsistente}
+          tipo={formAperto.mode === 'update' ? tipoDiSettore(formAperto.boulderEsistente.settore) : tipoAttivo}
           tracciatoreLoggato={tracciatoreLoggato}
           tracciatori={tracciatori}
           onClose={() => setFormAperto(null)}

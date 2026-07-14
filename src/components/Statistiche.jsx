@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { ORDINE_GRADI, COLORI_GRADO, LISTA_SETTORI } from '../lib/colori'
+import { ORDINE_GRADI, COLORI_GRADO, LISTA_SETTORI, LISTA_SETTORI_CORDA } from '../lib/colori'
 import ExportCsv from './ExportCsv'
 
 const PALETTE_SETTORI = [
@@ -47,6 +47,7 @@ export default function Statistiche({ tracciatoreLoggato }) {
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState(null)
   const [periodo, setPeriodo] = useState('mese')
+  const [tipoAttivo, setTipoAttivo] = useState('boulder')
 
   const carica = useCallback(async () => {
     setCaricamento(true)
@@ -54,7 +55,11 @@ export default function Statistiche({ tracciatoreLoggato }) {
 
     try {
       // Conteggi boulder attivi per grado e settore (stato corrente, non dipende dal periodo)
-      const qAttivi = query(collection(db, 'boulder'), where('stato', '==', 'attiva'))
+      const qAttivi = query(
+        collection(db, 'boulder'),
+        where('tipo', '==', tipoAttivo),
+        where('stato', '==', 'attiva')
+      )
       const snapAttivi = await getDocs(qAttivi)
       const attivi = snapAttivi.docs.map((d) => d.data())
 
@@ -64,8 +69,8 @@ export default function Statistiche({ tracciatoreLoggato }) {
       // Supabase, dove serviva disambiguare le due FK verso "tracciatori".
       const inizio = inizioPeriodo(periodo)
       const qStorico = inizio
-        ? query(collection(db, 'storico'), where('dataEvento', '>=', inizio))
-        : query(collection(db, 'storico'))
+        ? query(collection(db, 'storico'), where('tipo', '==', tipoAttivo), where('dataEvento', '>=', inizio))
+        : query(collection(db, 'storico'), where('tipo', '==', tipoAttivo))
       const snapStorico = await getDocs(qStorico)
       const eventi = snapStorico.docs.map((d) => d.data())
 
@@ -77,14 +82,15 @@ export default function Statistiche({ tracciatoreLoggato }) {
       })
       setDatiGrado(ORDINE_GRADI.map((g) => ({ grado: g, conteggio: conteggioGrado[g] })))
 
-      // Aggregazione per settore
+      // Aggregazione per settore (lista dipende dal tipo attivo)
+      const listaSettori = tipoAttivo === 'corda' ? LISTA_SETTORI_CORDA : LISTA_SETTORI
       const conteggioSettore = {}
-      LISTA_SETTORI.forEach((s) => (conteggioSettore[s] = 0))
+      listaSettori.forEach((s) => (conteggioSettore[s] = 0))
       attivi.forEach((b) => {
         if (conteggioSettore[b.settore] !== undefined) conteggioSettore[b.settore]++
       })
       setDatiSettore(
-        LISTA_SETTORI.map((s) => ({ nome: s, valore: conteggioSettore[s] })).filter((s) => s.valore > 0)
+        listaSettori.map((s) => ({ nome: s, valore: conteggioSettore[s] })).filter((s) => s.valore > 0)
       )
 
       // Classifica tracciatori, con suddivisione per grado
@@ -108,7 +114,7 @@ export default function Statistiche({ tracciatoreLoggato }) {
     }
 
     setCaricamento(false)
-  }, [periodo])
+  }, [periodo, tipoAttivo])
 
   useEffect(() => {
     carica()
@@ -117,6 +123,25 @@ export default function Statistiche({ tracciatoreLoggato }) {
   return (
     <div className="max-w-2xl mx-auto p-4 pb-24">
       <h1 className="text-lg font-bold text-navy mb-4">Statistiche</h1>
+
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setTipoAttivo('boulder')}
+          className={`px-3 py-1.5 rounded-full text-sm border ${
+            tipoAttivo === 'boulder' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+          }`}
+        >
+          Boulder
+        </button>
+        <button
+          onClick={() => setTipoAttivo('corda')}
+          className={`px-3 py-1.5 rounded-full text-sm border ${
+            tipoAttivo === 'corda' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+          }`}
+        >
+          Corda
+        </button>
+      </div>
 
       {caricamento && <p className="text-center text-gray-400 text-sm py-10">Caricamento...</p>}
 

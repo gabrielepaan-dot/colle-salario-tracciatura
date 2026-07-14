@@ -10,6 +10,16 @@ export default {
         giallo: '#FFC72C',
         verde: '#1E9E5A',
         rosso: '#E8202A',
+        // Palette scura della Home a scelta Boulder/Corda
+        grafite: '#16140F',
+        grafiteAlzata: '#1E1B15',
+        gesso: '#F2EDE4',
+        pietra: '#8A8478',
+      },
+      fontFamily: {
+        archivo: ['"Archivo Black"', 'sans-serif'],
+        barlow: ['"Barlow Condensed"', 'sans-serif'],
+        worksans: ['"Work Sans"', 'sans-serif'],
       },
     },
   },

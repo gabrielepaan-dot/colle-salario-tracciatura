@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
 import LoginScreen from './components/LoginScreen'
-import Home from './components/Home'
+import HomeSelezione from './components/HomeSelezione'
+import GrigliaSettori from './components/GrigliaSettori'
 import SettoreDetail from './components/SettoreDetail'
 import TuttiBoulder from './components/TuttiBoulder'
 import Statistiche from './components/Statistiche'
@@ -45,7 +46,7 @@ function AppShell() {
           path="/"
           element={
             <>
-              {vista === 'home' && <Home />}
+              {vista === 'home' && <HomeSelezione />}
               {vista === 'filtri' && <TuttiBoulder tracciatoreLoggato={tracciatore} />}
               {vista === 'statistiche' && <Statistiche tracciatoreLoggato={tracciatore} />}
               {vista === 'profilo' && (
@@ -58,6 +59,8 @@ function AppShell() {
             </>
           }
         />
+        <Route path="/boulder" element={<GrigliaSettori tipo="boulder" />} />
+        <Route path="/corda" element={<GrigliaSettori tipo="corda" />} />
         <Route path="/settore/:slug" element={<SettoreDetail tracciatoreLoggato={tracciatore} />} />
         <Route path="/cestino" element={<Cestino tracciatoreLoggato={tracciatore} />} />
       </Routes>

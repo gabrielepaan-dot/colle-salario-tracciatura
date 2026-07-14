@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '../lib/firebase'
-import { LISTA_SETTORI, LISTA_COLORI_PRESE, LISTA_COLORI_GRADO, COLORI_PRESE } from '../lib/colori'
+import { LISTA_SETTORI, LISTA_SETTORI_CORDA, LISTA_COLORI_PRESE, LISTA_COLORI_GRADO, COLORI_PRESE } from '../lib/colori'
 import GradoStar from './GradoStar'
 
 function oggiISO() {
@@ -16,16 +16,21 @@ const TRACCIATORE_ALTRI = '__altri__'
 // mode: 'create' | 'update'
 // boulderEsistente: { id, settore, colorePrese, coloreGrado, stato, note, dataUltimoCambio } — richiesto se mode === 'update'
 // settoreIniziale: string — usato solo se mode === 'create' (settore già scelto, es. da un filtro attivo)
+// tipo: 'boulder' | 'corda' — contesto da cui è stato aperto il form: determina la
+// lista settori mostrata in creazione e il campo `tipo` salvato sui nuovi documenti.
+// In modifica non viene mai usato per cambiare il tipo di un boulder/corda esistente.
 export default function BoulderForm({
   mode,
   boulderEsistente,
   settoreIniziale,
+  tipo,
   tracciatoreLoggato,
   tracciatori,
   onClose,
   onSalvato,
 }) {
-  const [settore, setSettore] = useState(boulderEsistente?.settore || settoreIniziale || LISTA_SETTORI[0])
+  const listaSettori = tipo === 'corda' ? LISTA_SETTORI_CORDA : LISTA_SETTORI
+  const [settore, setSettore] = useState(boulderEsistente?.settore || settoreIniziale || listaSettori[0])
   const [colorePrese, setColorePrese] = useState(boulderEsistente?.colorePrese || '')
   const [coloreGrado, setColoreGrado] = useState(boulderEsistente?.coloreGrado || '')
   const [note, setNote] = useState(boulderEsistente?.note || '')
@@ -112,6 +117,7 @@ export default function BoulderForm({
 
           const snapshot = {
             settore,
+            tipo,
             colorePrese: colore,
             coloreGrado: riga.coloreGrado || '',
             stato,
@@ -128,6 +134,7 @@ export default function BoulderForm({
           batch.set(storicoRef, {
             boulderId: boulderRef.id,
             settore,
+            tipo,
             tracciatoreId: rigaTracciatoreId,
             tracciatoreNome: rigaTracciatoreNome,
             eseguitoDaUid: auth.currentUser?.uid || null,
@@ -192,7 +199,7 @@ export default function BoulderForm({
             <p className="text-xs text-gray-400 mb-2">Settore</p>
             {mode === 'create' ? (
               <div className="grid grid-cols-2 gap-2">
-                {LISTA_SETTORI.map((s) => (
+                {listaSettori.map((s) => (
                   <button
                     key={s}
                     onClick={() => setSettore(s)}

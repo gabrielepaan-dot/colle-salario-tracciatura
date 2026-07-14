@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { tipoDiSettore } from '../lib/colori'
 import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
 import ConfermaDialog from './ConfermaDialog'
@@ -160,6 +161,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
           mode={formAperto.mode}
           boulderEsistente={formAperto.boulderEsistente}
           settoreIniziale={settore}
+          tipo={tipoDiSettore(settore)}
           tracciatoreLoggato={tracciatoreLoggato}
           tracciatori={tracciatori}
           onClose={() => setFormAperto(null)}

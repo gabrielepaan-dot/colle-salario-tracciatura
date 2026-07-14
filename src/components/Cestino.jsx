@@ -146,8 +146,16 @@ export default function Cestino({ tracciatoreLoggato }) {
 
             return (
               <div key={b.id} className="flex items-center gap-2 px-3 py-2.5" style={{ backgroundColor: sfondo, color: testo }}>
-                <span className="text-[10px] truncate shrink-0 w-14" style={{ color: testoAttenuato }}>
-                  {b.settore}
+                <span className="flex flex-col gap-0.5 shrink-0 w-14 min-w-0">
+                  <span
+                    className="text-[8px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded-full border w-fit"
+                    style={{ borderColor: testoAttenuato, color: testoAttenuato }}
+                  >
+                    {b.tipo === 'corda' ? 'Corda' : 'Boulder'}
+                  </span>
+                  <span className="text-[10px] truncate" style={{ color: testoAttenuato }}>
+                    {b.settore}
+                  </span>
                 </span>
 
                 <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
