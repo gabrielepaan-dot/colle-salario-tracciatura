@@ -17,8 +17,22 @@ export function useCancellazioneBoulder(onCompletata, tracciatoreLoggato) {
   const [inAttesaAnnulla, setInAttesaAnnulla] = useState(null)
   const [erroreEliminazione, setErroreEliminazione] = useState(null)
   const timeoutRef = useRef(null)
+  // Cancellazione già confermata (toast a schermo) ma non ancora scritta:
+  // se il componente viene smontato prima che il timer scada — l'utente
+  // naviga via, es. verso il Cestino — non va persa nel nulla, va scritta
+  // subito, esattamente come se il timer fosse scaduto sul posto.
+  const pendingRef = useRef(null)
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(timeoutRef.current)
+      if (pendingRef.current) {
+        eliminaBoulder(pendingRef.current.boulder, pendingRef.current.tracciatoreLoggato).catch((e) => console.error(e))
+        pendingRef.current = null
+      }
+    },
+    []
+  )
 
   function richiediEliminazione(boulder) {
     setErroreEliminazione(null)
@@ -49,12 +63,16 @@ export function useCancellazioneBoulder(onCompletata, tracciatoreLoggato) {
     // altrimenti il suo timer verrebbe sovrascritto e non scatterebbe mai.
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
-      eseguiEliminazione(inAttesaAnnulla)
+      const precedente = pendingRef.current
+      pendingRef.current = null
+      if (precedente) eseguiEliminazione(precedente.boulder)
     }
 
     setInAttesaAnnulla(boulder)
+    pendingRef.current = { boulder, tracciatoreLoggato }
     timeoutRef.current = setTimeout(() => {
       timeoutRef.current = null
+      pendingRef.current = null
       setInAttesaAnnulla(null)
       eseguiEliminazione(boulder)
     }, DURATA_ANNULLA_MS)
@@ -63,6 +81,7 @@ export function useCancellazioneBoulder(onCompletata, tracciatoreLoggato) {
   function annullaEliminazione() {
     clearTimeout(timeoutRef.current)
     timeoutRef.current = null
+    pendingRef.current = null
     setInAttesaAnnulla(null)
   }
 
