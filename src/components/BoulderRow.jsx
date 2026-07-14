@@ -1,6 +1,6 @@
 import Avatar from './Avatar'
 import GradoStar from './GradoStar'
-import { COLORI_PRESE, testoLeggibileSu } from '../lib/colori'
+import { COLORI_PRESE, sfondoColorePrese, testoPerColorePrese, nomeColorePrese } from '../lib/colori'
 import { formattaDataCompatta, giorniFaCompatto } from '../lib/date'
 
 // Solo per lo sfondo dell'intera riga: in COLORI_PRESE "bianco" è un grigio
@@ -22,9 +22,13 @@ const SFONDO_RIGA_OVERRIDE = {
 export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick, mostraCestino, onElimina }) {
   const { settore, colorePrese, coloreGrado, tracciatoreNome, dataUltimoCambio } = boulder
 
-  const sfondo = SFONDO_RIGA_OVERRIDE[colorePrese] || COLORI_PRESE[colorePrese] || '#374151'
-  const testo = testoLeggibileSu(sfondo)
+  const sfondoNormale = SFONDO_RIGA_OVERRIDE[colorePrese] || COLORI_PRESE[colorePrese] || '#374151'
+  const sfondo = sfondoColorePrese(colorePrese, sfondoNormale)
+  const testo = testoPerColorePrese(colorePrese, sfondoNormale)
   const testoAttenuato = testo === '#FFFFFF' ? 'rgba(255,255,255,0.75)' : 'rgba(17,17,17,0.65)'
+  // "Giallo old" è già un colore a sé stante (il nome lo dice), ma condivide
+  // la stessa resa desaturata degli altri colori marcati old:true.
+  const desaturato = !!boulder.old || colorePrese === 'giallo_old'
 
   return (
     <div
@@ -39,7 +43,12 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
           : undefined
       }
       className={`flex items-center gap-2 px-3 py-2.5 ${cliccabile ? 'cursor-pointer active:opacity-80' : ''}`}
-      style={{ backgroundColor: sfondo, color: testo }}
+      style={{
+        background: sfondo,
+        color: testo,
+        filter: desaturato ? 'saturate(0.62) brightness(1.04)' : undefined,
+        opacity: desaturato ? 0.88 : 1,
+      }}
     >
       {mostraSettore && (
         <span className="text-[10px] truncate shrink-0 w-14" style={{ color: testoAttenuato }}>
@@ -48,7 +57,8 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
       )}
 
       <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
-        {colorePrese}
+        {nomeColorePrese(colorePrese)}
+        {boulder.old && <span className="font-normal normal-case"> · old</span>}
       </span>
 
       <span className="flex items-center gap-1.5 shrink-0 max-w-[6.5rem]">

@@ -49,6 +49,9 @@ export default function Statistiche({ tracciatoreLoggato }) {
   const [periodo, setPeriodo] = useState('mese')
   const [tipoAttivo, setTipoAttivo] = useState('boulder')
 
+  const etichettaGrado = tipoAttivo === 'corda' ? 'Vie attive per grado' : 'Boulder attivi per grado'
+  const etichettaSettore = tipoAttivo === 'corda' ? 'Vie attive per settore' : 'Boulder attivi per settore'
+
   const carica = useCallback(async () => {
     setCaricamento(true)
     setErrore(null)
@@ -156,7 +159,7 @@ export default function Statistiche({ tracciatoreLoggato }) {
         <div className="flex flex-col gap-6">
           {/* Boulder attivi per grado */}
           <section className="bg-white border border-gray-200 rounded-2xl p-4">
-            <h2 className="font-bold text-navy text-sm mb-3">Boulder attivi per grado</h2>
+            <h2 className="font-bold text-navy text-sm mb-3">{etichettaGrado}</h2>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={datiGrado}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -174,7 +177,7 @@ export default function Statistiche({ tracciatoreLoggato }) {
 
           {/* Boulder attivi per settore */}
           <section className="bg-white border border-gray-200 rounded-2xl p-4">
-            <h2 className="font-bold text-navy text-sm mb-3">Boulder attivi per settore</h2>
+            <h2 className="font-bold text-navy text-sm mb-3">{etichettaSettore}</h2>
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie data={datiSettore} dataKey="valore" nameKey="nome" outerRadius={90} label={{ fontSize: 10 }}>

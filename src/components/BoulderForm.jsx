@@ -1,11 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '../lib/firebase'
-import { LISTA_SETTORI, LISTA_SETTORI_CORDA, LISTA_COLORI_PRESE, LISTA_COLORI_GRADO, COLORI_PRESE } from '../lib/colori'
+import {
+  LISTA_SETTORI,
+  LISTA_SETTORI_CORDA,
+  LISTA_COLORI_PRESE,
+  LISTA_COLORI_GRADO,
+  COLORI_PRESE,
+  COLORI_SPECIALI,
+  LISTA_COLORI_SPECIALI,
+  isColoreSpeciale,
+  supportaOld,
+  nomeColorePrese,
+  sfondoColorePrese,
+  testoPerColorePrese,
+  hexRappresentativo,
+} from '../lib/colori'
 import GradoStar from './GradoStar'
 
 function oggiISO() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function primaLettera(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 // Valore locale usato per la chip "Altri" (tracciatore occasionale, non tra
@@ -33,6 +51,8 @@ export default function BoulderForm({
   const [settore, setSettore] = useState(boulderEsistente?.settore || settoreIniziale || listaSettori[0])
   const [colorePrese, setColorePrese] = useState(boulderEsistente?.colorePrese || '')
   const [coloreGrado, setColoreGrado] = useState(boulderEsistente?.coloreGrado || '')
+  const [old, setOld] = useState(boulderEsistente?.old || false)
+  const [specialiAperto, setSpecialiAperto] = useState(() => isColoreSpeciale(boulderEsistente?.colorePrese))
   const [note, setNote] = useState(boulderEsistente?.note || '')
   const [dataEvento, setDataEvento] = useState(oggiISO())
   const [tracciatoreId, setTracciatoreId] = useState(() => {
@@ -49,6 +69,13 @@ export default function BoulderForm({
   const [coloriPreseSelezionati, setColoriPreseSelezionati] = useState([])
   const [datiPerColore, setDatiPerColore] = useState({})
 
+  // Il toggle OLD non si applica a giallo fluo/oro né agli speciali: se il
+  // colore selezionato cambia verso uno di questi, disattivalo (evita di
+  // salvare uno stato incoerente, coerente col resettarsi visivamente).
+  useEffect(() => {
+    if (!supportaOld(colorePrese)) setOld(false)
+  }, [colorePrese])
+
   // Un boulder nasce sempre attivo; lo stato "non attivo" si ottiene solo
   // rimuovendolo (cestino in Dettaglio settore / Filtri), mai da qui.
   const stato = mode === 'create' ? 'attiva' : boulderEsistente?.stato || 'attiva'
@@ -60,7 +87,9 @@ export default function BoulderForm({
       ? settore && coloriPreseSelezionati.length > 0 && dataEvento
       : settore && colorePrese && dataEvento && tracciatoreId
 
-  const righeColori = LISTA_COLORI_PRESE.filter((c) => coloriPreseSelezionati.includes(c))
+  const righeColori = [...LISTA_COLORI_PRESE, ...LISTA_COLORI_SPECIALI].filter((c) =>
+    coloriPreseSelezionati.includes(c)
+  )
 
   const testoBottone = salvando
     ? 'Salvataggio...'
@@ -71,6 +100,11 @@ export default function BoulderForm({
     : coloriPreseSelezionati.length === 1
     ? 'Crea boulder'
     : `Crea ${coloriPreseSelezionati.length} boulder`
+
+  function selezionaColoreSingolo(c) {
+    setColorePrese(c)
+    if (!supportaOld(c)) setOld(false)
+  }
 
   function toggleColore(c) {
     setColoriPreseSelezionati((prev) => {
@@ -84,7 +118,7 @@ export default function BoulderForm({
       }
       setDatiPerColore((d) => ({
         ...d,
-        [c]: { coloreGrado: '', tracciatoreId: tracciatoreLoggato?.id || '' },
+        [c]: { coloreGrado: '', tracciatoreId: tracciatoreLoggato?.id || '', old: false },
       }))
       return [...prev, c]
     })
@@ -120,6 +154,7 @@ export default function BoulderForm({
             tipo,
             colorePrese: colore,
             coloreGrado: riga.coloreGrado || '',
+            old: supportaOld(colore) ? !!riga.old : false,
             stato,
             note: note || null,
             tracciatoreId: rigaTracciatoreId,
@@ -165,6 +200,7 @@ export default function BoulderForm({
             settore,
             colorePrese,
             coloreGrado,
+            old: supportaOld(colorePrese) ? old : false,
             stato,
             note: note || null,
             tracciatoreId: tracciatoreIdDaSalvare,
@@ -225,7 +261,7 @@ export default function BoulderForm({
                 return (
                   <button
                     key={c}
-                    onClick={() => (mode === 'create' ? toggleColore(c) : setColorePrese(c))}
+                    onClick={() => (mode === 'create' ? toggleColore(c) : selezionaColoreSingolo(c))}
                     className="px-2 py-2 rounded-lg text-xs font-medium border capitalize"
                     style={{
                       backgroundColor: attivo ? COLORI_PRESE[c] : 'white',
@@ -238,6 +274,73 @@ export default function BoulderForm({
                 )
               })}
             </div>
+
+            {/* Speciali: set chiuso di 5 valori (3 bicolore + 2 pieni), meno
+                frequenti dei 12 base — accordion chiuso di default, aperto
+                automaticamente solo se il colore già selezionato è uno di questi. */}
+            <button
+              type="button"
+              onClick={() => setSpecialiAperto((v) => !v)}
+              className="flex items-center gap-1 text-xs text-gray-400 font-medium mt-3 mb-2"
+            >
+              <span className={`inline-block transition-transform ${specialiAperto ? 'rotate-90' : ''}`}>▸</span>
+              Speciali
+            </button>
+            {specialiAperto && (
+              <div className="grid grid-cols-3 gap-2">
+                {LISTA_COLORI_SPECIALI.map((c) => {
+                  const attivo = mode === 'create' ? coloriPreseSelezionati.includes(c) : colorePrese === c
+                  const speciale = COLORI_SPECIALI[c]
+                  const coloreRappresentativo = hexRappresentativo(c)
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => (mode === 'create' ? toggleColore(c) : selezionaColoreSingolo(c))}
+                      className="px-2 py-2 rounded-lg text-xs font-medium border-2"
+                      style={{
+                        background: attivo ? sfondoColorePrese(c) : 'white',
+                        color: attivo ? testoPerColorePrese(c) : coloreRappresentativo,
+                        borderColor: '#111',
+                        filter: speciale.desaturato ? 'saturate(0.62) brightness(1.04)' : undefined,
+                        opacity: speciale.desaturato ? 0.88 : 1,
+                      }}
+                    >
+                      {speciale.nome}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {mode === 'update' && (
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  type="button"
+                  disabled={!supportaOld(colorePrese)}
+                  onClick={() => setOld((v) => !v)}
+                  className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
+                    old ? 'bg-navy' : 'bg-gray-300'
+                  } ${!supportaOld(colorePrese) ? 'opacity-40' : ''}`}
+                  aria-label="OLD"
+                  aria-pressed={old}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                      old ? 'translate-x-4' : ''
+                    }`}
+                  />
+                </button>
+                <span className="text-xs font-medium text-gray-600">OLD</span>
+              </div>
+            )}
+
+            {mode === 'update' && colorePrese && (
+              <p className="text-xs text-gray-500 mt-2">
+                Selezionato: {primaLettera(nomeColorePrese(colorePrese))}
+                {old ? ' (old)' : ''}
+              </p>
+            )}
           </div>
 
           {mode === 'create' ? (
@@ -258,21 +361,22 @@ export default function BoulderForm({
                         <th className="px-2 py-1.5 font-normal">Colore</th>
                         <th className="px-2 py-1.5 font-normal">Grado</th>
                         <th className="px-2 py-1.5 font-normal">Tracciatore</th>
+                        <th className="px-2 py-1.5 font-normal">Old</th>
                       </tr>
                     </thead>
                     <tbody>
                       {righeColori.map((colore) => {
                         const riga = datiPerColore[colore] || {}
-                        const sfondo = COLORI_PRESE[colore]
+                        const sfondo = hexRappresentativo(colore)
                         return (
                           <tr key={colore} style={{ backgroundColor: `${sfondo}22` }}>
                             <td className="px-2 py-2 align-top">
                               <span className="flex items-center gap-1.5">
                                 <span
                                   className="w-2.5 h-2.5 rounded-full shrink-0"
-                                  style={{ backgroundColor: sfondo }}
+                                  style={{ background: sfondoColorePrese(colore, sfondo) }}
                                 />
-                                <span className="capitalize truncate">{colore}</span>
+                                <span className="capitalize truncate">{nomeColorePrese(colore)}</span>
                               </span>
                             </td>
                             <td className="px-2 py-2 align-top">
@@ -307,6 +411,24 @@ export default function BoulderForm({
                                 ))}
                                 <option value={TRACCIATORE_ALTRI}>Altri</option>
                               </select>
+                            </td>
+                            <td className="px-2 py-2 align-top">
+                              <button
+                                type="button"
+                                disabled={!supportaOld(colore)}
+                                onClick={() => aggiornaRiga(colore, 'old', !riga.old)}
+                                className={`relative w-8 h-5 rounded-full transition-colors ${
+                                  riga.old ? 'bg-navy' : 'bg-gray-300'
+                                } ${!supportaOld(colore) ? 'opacity-40' : ''}`}
+                                aria-label={`Old per ${colore}`}
+                                aria-pressed={!!riga.old}
+                              >
+                                <span
+                                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                                    riga.old ? 'translate-x-3' : ''
+                                  }`}
+                                />
+                              </button>
                             </td>
                           </tr>
                         )

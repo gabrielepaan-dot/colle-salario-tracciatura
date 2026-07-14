@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { COLORI_PRESE, testoLeggibileSu } from '../lib/colori'
+import { COLORI_PRESE, sfondoColorePrese, testoPerColorePrese, nomeColorePrese } from '../lib/colori'
 import { formattaTempoFa, giorniTra } from '../lib/date'
 import Avatar from './Avatar'
 import GradoStar from './GradoStar'
@@ -139,13 +139,24 @@ export default function Cestino({ tracciatoreLoggato }) {
       {!caricamento && !errore && boulders.length > 0 && (
         <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
           {boulders.map((b) => {
-            const sfondo = SFONDO_RIGA_OVERRIDE[b.colorePrese] || COLORI_PRESE[b.colorePrese] || '#374151'
-            const testo = testoLeggibileSu(sfondo)
+            const sfondoNormale = SFONDO_RIGA_OVERRIDE[b.colorePrese] || COLORI_PRESE[b.colorePrese] || '#374151'
+            const sfondo = sfondoColorePrese(b.colorePrese, sfondoNormale)
+            const testo = testoPerColorePrese(b.colorePrese, sfondoNormale)
             const testoAttenuato = testo === '#FFFFFF' ? 'rgba(255,255,255,0.75)' : 'rgba(17,17,17,0.65)'
+            const desaturato = !!b.old || b.colorePrese === 'giallo_old'
             const inCorso = azioneInCorso === b.id
 
             return (
-              <div key={b.id} className="flex items-center gap-2 px-3 py-2.5" style={{ backgroundColor: sfondo, color: testo }}>
+              <div
+                key={b.id}
+                className="flex items-center gap-2 px-3 py-2.5"
+                style={{
+                  background: sfondo,
+                  color: testo,
+                  filter: desaturato ? 'saturate(0.62) brightness(1.04)' : undefined,
+                  opacity: desaturato ? 0.88 : 1,
+                }}
+              >
                 <span className="flex flex-col gap-0.5 shrink-0 w-14 min-w-0">
                   <span
                     className="text-[8px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded-full border w-fit"
@@ -159,7 +170,8 @@ export default function Cestino({ tracciatoreLoggato }) {
                 </span>
 
                 <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
-                  {b.colorePrese}
+                  {nomeColorePrese(b.colorePrese)}
+                  {b.old && <span className="font-normal normal-case"> · old</span>}
                 </span>
 
                 <GradoStar coloreGrado={b.coloreGrado} size="md" />
