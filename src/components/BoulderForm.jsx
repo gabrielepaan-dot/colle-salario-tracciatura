@@ -98,7 +98,9 @@ export default function BoulderForm({
     : coloriPreseSelezionati.length === 0
     ? 'Seleziona almeno un colore'
     : coloriPreseSelezionati.length === 1
-    ? 'Crea boulder'
+    ? (tipo === 'corda' ? 'Crea via' : 'Crea boulder')
+    : tipo === 'corda'
+    ? `Crea ${coloriPreseSelezionati.length} vie`
     : `Crea ${coloriPreseSelezionati.length} boulder`
 
   function selezionaColoreSingolo(c) {
@@ -225,7 +227,9 @@ export default function BoulderForm({
         <div className="flex-1 overflow-y-auto p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-navy">
-              {mode === 'create' ? 'Nuovo boulder' : 'Aggiorna boulder'}
+              {mode === 'create'
+                ? tipo === 'corda' ? 'Nuova via' : 'Nuovo boulder'
+                : tipo === 'corda' ? 'Aggiorna via' : 'Aggiorna boulder'}
             </h2>
             <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
           </div>
@@ -509,7 +513,11 @@ export default function BoulderForm({
               onChange={(e) => setNote(e.target.value)}
               rows={2}
               className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-              placeholder="es. dx, sx — solo se serve distinguere boulder simili"
+              placeholder={
+                tipo === 'corda'
+                  ? 'es. dx, sx — solo se serve distinguere vie simili'
+                  : 'es. dx, sx — solo se serve distinguere boulder simili'
+              }
             />
           </div>
 
