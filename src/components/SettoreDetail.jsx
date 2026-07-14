@@ -144,8 +144,8 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
 
       {daEliminare && (
         <ConfermaDialog
-          titolo="Rimuovere questo boulder?"
-          messaggio={`"${daEliminare.colorePrese}" tracciato da ${daEliminare.tracciatoreNome}. L'azione non è reversibile dall'app.`}
+          titolo="Rimuovere questo blocco?"
+          messaggio="Potrai ripristinarlo dal Cestino."
           onAnnulla={annulla}
           onConferma={conferma}
         />

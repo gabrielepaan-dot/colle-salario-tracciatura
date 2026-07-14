@@ -2,21 +2,26 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { COLORI_PRESE } from '../lib/colori'
-import { formattaTempoFa } from '../lib/date'
+import { COLORI_PRESE, testoLeggibileSu } from '../lib/colori'
+import { formattaTempoFa, giorniTra } from '../lib/date'
+import Avatar from './Avatar'
+import GradoStar from './GradoStar'
+import ConfermaDialog from './ConfermaDialog'
 
 const SETTE_GIORNI_MS = 7 * 24 * 60 * 60 * 1000
+const SFONDO_RIGA_OVERRIDE = { bianco: '#FFFBEB' }
 
 // Pagina raggiungibile solo da Profilo. Ogni apertura fa prima una pulizia:
 // i blocchi rimossi da più di 7 giorni vengono eliminati per sempre da
-// Firestore (nessuna Cloud Function, tutto qui lato client), poi si mostra
-// la lista di quello che resta nel cestino.
+// Firestore (nessuna Cloud Function, tutto qui lato client, storico non
+// toccato), poi si mostra la lista di quello che resta nel cestino.
 export default function Cestino({ tracciatoreLoggato }) {
   const navigate = useNavigate()
   const [boulders, setBoulders] = useState([])
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState(null)
   const [azioneInCorso, setAzioneInCorso] = useState(null)
+  const [confermaEliminazione, setConfermaEliminazione] = useState(null)
 
   const carica = useCallback(async () => {
     setCaricamento(true)
@@ -59,7 +64,12 @@ export default function Cestino({ tracciatoreLoggato }) {
     setAzioneInCorso(boulder.id)
     setErrore(null)
     try {
-      await updateDoc(doc(db, 'boulder', boulder.id), { stato: 'attiva', rimossoDa: null, rimossoIl: null })
+      await updateDoc(doc(db, 'boulder', boulder.id), {
+        stato: 'attiva',
+        rimossoDa: null,
+        rimossoDaNome: null,
+        rimossoIl: null,
+      })
       await carica()
     } catch (e) {
       setErrore('Connessione assente, riprova. Se il problema persiste il ripristino non è andato a buon fine.')
@@ -67,6 +77,36 @@ export default function Cestino({ tracciatoreLoggato }) {
     }
     setAzioneInCorso(null)
   }
+
+  async function eliminaDefinitivamente(boulder) {
+    setAzioneInCorso(boulder.id)
+    setErrore(null)
+    try {
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'boulder', boulder.id))
+      const storicoSnap = await getDocs(query(collection(db, 'storico'), where('boulderId', '==', boulder.id)))
+      storicoSnap.forEach((s) => batch.delete(s.ref))
+      await batch.commit()
+      await carica()
+    } catch (e) {
+      setErrore('Connessione assente, riprova. Se il problema persiste l\'eliminazione non è andata a buon fine.')
+      console.error(e)
+    }
+    setAzioneInCorso(null)
+  }
+
+  function richiediEliminazioneDefinitiva(boulder) {
+    const giorni = giorniTra(boulder.creatoIl, boulder.rimossoIl)
+    if (giorni === null || giorni >= 7) {
+      setConfermaEliminazione(boulder)
+    } else {
+      eliminaDefinitivamente(boulder)
+    }
+  }
+
+  const giorniInParete = confermaEliminazione
+    ? giorniTra(confermaEliminazione.creatoIl, confermaEliminazione.rimossoIl)
+    : null
 
   return (
     <div className="max-w-2xl mx-auto p-4 pb-24">
@@ -97,31 +137,73 @@ export default function Cestino({ tracciatoreLoggato }) {
       )}
 
       {!caricamento && !errore && boulders.length > 0 && (
-        <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-gray-100 bg-white">
-          {boulders.map((b) => (
-            <div key={b.id} className="flex items-center gap-3 px-4 py-3">
-              <span
-                className="w-3 h-3 rounded-full shrink-0 border border-black/10"
-                style={{ backgroundColor: COLORI_PRESE[b.colorePrese] || '#9CA3AF' }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">
-                  <span className="capitalize">{b.colorePrese}</span> — {b.settore}
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  Rimosso da {b.rimossoDa || 'sconosciuto'} · {formattaTempoFa(b.rimossoIl)}
-                </p>
+        <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
+          {boulders.map((b) => {
+            const sfondo = SFONDO_RIGA_OVERRIDE[b.colorePrese] || COLORI_PRESE[b.colorePrese] || '#374151'
+            const testo = testoLeggibileSu(sfondo)
+            const testoAttenuato = testo === '#FFFFFF' ? 'rgba(255,255,255,0.75)' : 'rgba(17,17,17,0.65)'
+            const inCorso = azioneInCorso === b.id
+
+            return (
+              <div key={b.id} className="flex items-center gap-2 px-3 py-2.5" style={{ backgroundColor: sfondo, color: testo }}>
+                <span className="text-[10px] truncate shrink-0 w-14" style={{ color: testoAttenuato }}>
+                  {b.settore}
+                </span>
+
+                <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
+                  {b.colorePrese}
+                </span>
+
+                <GradoStar coloreGrado={b.coloreGrado} size="md" />
+
+                <span className="flex items-center gap-1.5 shrink-0 max-w-[7rem]">
+                  <Avatar nome={b.rimossoDaNome} size="sm" />
+                  <span className="flex flex-col leading-tight min-w-0">
+                    <span className="text-xs truncate" style={{ color: testo }}>
+                      {b.rimossoDaNome || 'sconosciuto'}
+                    </span>
+                    <span className="text-[10px] truncate" style={{ color: testoAttenuato }}>
+                      {formattaTempoFa(b.rimossoIl)}
+                    </span>
+                  </span>
+                </span>
+
+                <div className="flex flex-col gap-1 shrink-0">
+                  <button
+                    onClick={() => ripristina(b)}
+                    disabled={inCorso || !tracciatoreLoggato}
+                    className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-navy disabled:opacity-40"
+                  >
+                    {inCorso ? '...' : 'Ripristina'}
+                  </button>
+                  <button
+                    onClick={() => richiediEliminazioneDefinitiva(b)}
+                    disabled={inCorso || !tracciatoreLoggato}
+                    className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-rosso disabled:opacity-40"
+                  >
+                    {inCorso ? '...' : 'Elimina'}
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => ripristina(b)}
-                disabled={azioneInCorso === b.id || !tracciatoreLoggato}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-navy text-navy disabled:opacity-40"
-              >
-                {azioneInCorso === b.id ? '...' : 'Ripristina'}
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
+      )}
+
+      {confermaEliminazione && (
+        <ConfermaDialog
+          titolo="Eliminare definitivamente?"
+          messaggio={`Questo blocco è stato in parete ${giorniInParete === null ? 'da molto tempo' : `${giorniInParete} giorni`} — eliminarlo rimuoverà anche le statistiche associate. Confermi?`}
+          testoConferma="Elimina definitivamente"
+          testoInCorso="Eliminazione..."
+          inCorso={azioneInCorso === confermaEliminazione.id}
+          onAnnulla={() => setConfermaEliminazione(null)}
+          onConferma={async () => {
+            const boulder = confermaEliminazione
+            await eliminaDefinitivamente(boulder)
+            setConfermaEliminazione(null)
+          }}
+        />
       )}
     </div>
   )

@@ -31,7 +31,7 @@ export function useCancellazioneBoulder(onCompletata, tracciatoreLoggato) {
 
   async function eseguiEliminazione(boulder) {
     try {
-      await eliminaBoulder(boulder, tracciatoreLoggato?.nome)
+      await eliminaBoulder(boulder, tracciatoreLoggato)
       onCompletata()
     } catch (e) {
       setErroreEliminazione('Connessione assente, riprova. Se il problema persiste la rimozione non è andata a buon fine.')

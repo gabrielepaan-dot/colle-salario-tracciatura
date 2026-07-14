@@ -24,6 +24,18 @@ export function formattaTempoFa(valore) {
   return data.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// Giorni interi tra due Timestamp Firestore (o date), usato in Cestino per
+// calcolare quanto un blocco è stato in parete (rimossoIl - creatoIl) prima
+// dell'eliminazione definitiva. Se manca uno dei due timestamp (blocco
+// storico senza creatoIl affidabile), ritorna null: il chiamante tratta
+// "sconosciuto" come "meglio avvisare" (>= 7 giorni).
+export function giorniTra(inizio, fine) {
+  const inizioDate = inizio?.toDate ? inizio.toDate() : inizio ? new Date(inizio) : null
+  const fineDate = fine?.toDate ? fine.toDate() : fine ? new Date(fine) : null
+  if (!inizioDate || !fineDate) return null
+  return Math.round((fineDate.getTime() - inizioDate.getTime()) / (1000 * 60 * 60 * 24))
+}
+
 // "3gg fa" invece di "3 giorni fa", per la stessa mini-tabella densa.
 export function giorniFaCompatto(dataStr) {
   if (!dataStr) return null

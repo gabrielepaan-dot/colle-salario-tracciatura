@@ -48,22 +48,12 @@ service cloud.firestore {
     match /boulder/{boulderId} {
       allow read: if true;
       allow create, update: if autenticato();
-      // Cancellazione reale consentita in due soli casi:
-      // 1) entro 24 ore dalla creazione (vedi src/lib/eliminaBoulder.js):
-      //    oltre le 24 ore, o se manca un timestamp di creazione affidabile,
-      //    l'app fa un soft-delete via update (stato: 'rimossa'), mai una
-      //    delete vera;
-      // 2) pulizia automatica del Cestino (vedi src/components/Cestino.jsx):
-      //    un blocco già soft-eliminato da più di 7 giorni (rimossoIl) può
-      //    essere eliminato per sempre.
-      allow delete: if autenticato()
-        && (
-          (resource.data.creatoIl is timestamp
-            && request.time < resource.data.creatoIl + duration.value(24, 'h'))
-          || (resource.data.stato == 'rimossa'
-            && resource.data.rimossoIl is timestamp
-            && request.time > resource.data.rimossoIl + duration.value(7, 'd'))
-        );
+      // Cancellazione reale consentita solo su blocchi già passati dal
+      // Cestino (stato: 'rimossa'), sia per la pulizia automatica dopo 7
+      // giorni sia per "Elimina definitivamente" manuale (vedi
+      // src/components/Cestino.jsx), che può scattare anche subito dopo il
+      // soft-delete se il blocco è stato in parete meno di 7 giorni.
+      allow delete: if autenticato() && resource.data.stato == 'rimossa';
     }
 
     // Storico: lettura pubblica, scrittura/correzione per chiunque sia

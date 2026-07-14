@@ -132,8 +132,8 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
 
       {daEliminare && (
         <ConfermaDialog
-          titolo="Rimuovere questo boulder?"
-          messaggio={`"${daEliminare.colorePrese}" — ${daEliminare.settore}. L'azione non è reversibile dall'app.`}
+          titolo="Rimuovere questo blocco?"
+          messaggio="Potrai ripristinarlo dal Cestino."
           onAnnulla={annulla}
           onConferma={conferma}
         />

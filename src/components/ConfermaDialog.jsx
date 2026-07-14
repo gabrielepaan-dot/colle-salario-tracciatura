@@ -1,4 +1,12 @@
-export default function ConfermaDialog({ titolo, messaggio, onConferma, onAnnulla, inCorso }) {
+export default function ConfermaDialog({
+  titolo,
+  messaggio,
+  onConferma,
+  onAnnulla,
+  inCorso,
+  testoConferma = 'Rimuovi',
+  testoInCorso = 'Rimozione...',
+}) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white w-full max-w-sm rounded-2xl p-5">
@@ -17,7 +25,7 @@ export default function ConfermaDialog({ titolo, messaggio, onConferma, onAnnull
             disabled={inCorso}
             className="flex-1 py-2.5 rounded-xl bg-rosso text-white text-sm font-medium disabled:opacity-50"
           >
-            {inCorso ? 'Rimozione...' : 'Rimuovi'}
+            {inCorso ? testoInCorso : testoConferma}
           </button>
         </div>
       </div>
