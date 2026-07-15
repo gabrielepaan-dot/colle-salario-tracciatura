@@ -12,7 +12,7 @@ import Cestino from './components/Cestino'
 import BottomNav from './components/BottomNav'
 
 function AppShell() {
-  const { tracciatore, login, logout, error } = useAuth()
+  const { tracciatore, unlocked, login, unlock, logout, error } = useAuth()
   const [mostraLogin, setMostraLogin] = useState(false)
   const [vista, setVista] = useState('home') // 'home' | 'filtri' | 'statistiche' | 'profilo'
   const navigate = useNavigate()
@@ -25,12 +25,25 @@ function AppShell() {
     if (location.pathname !== '/') navigate('/')
   }
 
+  // Device già collegato a un tracciatore (anche da prima dell'introduzione
+  // della password condivisa) ma non ancora sbloccato su questo device:
+  // si chiede solo la password, il nome è già noto.
+  if (tracciatore && !unlocked) {
+    return <LoginScreen onLogin={login} onUnlock={unlock} loginError={error} nomeFisso={tracciatore.nome} />
+  }
+
   if (mostraLogin && !tracciatore) {
     return (
       <LoginScreen
         onLogin={async (nome) => {
-          const ok = await login(nome)
+          const risultato = await login(nome)
+          if (risultato === true) setMostraLogin(false)
+          return risultato
+        }}
+        onUnlock={async (password) => {
+          const ok = await unlock(password)
           if (ok) setMostraLogin(false)
+          return ok
         }}
         loginError={error}
       />

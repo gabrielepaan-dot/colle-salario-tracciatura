@@ -22,6 +22,10 @@
    - Regione: una in Europa (es. `eur3` o `europe-west`)
 
 5. **Applica le Security Rules**
+   - ⚠️ Prima di pubblicare le regole, imposta la password condivisa
+     seguendo i punti 1-2 della sezione "Password condivisa per i
+     tracciatori" più sotto — le regole negano l'accesso finché
+     `config/authGate` non esiste.
    - Nella sezione Firestore Database → tab "Rules"
    - Cancella il contenuto di default e incolla tutto il contenuto di `firestore.rules`
    - Clicca "Publish"
@@ -66,6 +70,45 @@
     ```bash
     npm run dev
     ```
+
+## Password condivisa per i tracciatori
+
+Da questa versione, scegliere il proprio nome nel selettore non basta più
+per ottenere diritti di scrittura: serve anche inserire una password
+condivisa (uguale per tutti e sei i tracciatori). La verifica è vincolante
+lato Firestore Security Rules (non solo lato app): vedi `passwordSbloccata()`
+in `firestore.rules` per i dettagli tecnici.
+
+**Ordine di attivazione (importante, va rispettato in questo ordine):**
+
+1. Genera una service account key dalla Firebase Console: Project Settings
+   (ingranaggio) → tab "Service accounts" → "Generate new private key".
+   Salva il file scaricato come `serviceAccountKey.json` nella root del
+   progetto (è già escluso da `.gitignore`, non finisce mai su GitHub).
+2. Imposta la password iniziale:
+   ```bash
+   npm install
+   GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json \
+     node scripts/set-shared-password.mjs "<la-password-condivisa-scelta>"
+   ```
+   (sostituisci `<la-password-condivisa-scelta>` con la passphrase reale —
+   non scriverla mai in questo file né altrove nel repo pubblico; vedi
+   commenti in testa allo script per i dettagli).
+3. **Solo dopo** aver eseguito il punto 2, pubblica le regole aggiornate:
+   Firestore Database → tab "Rules" → incolla il contenuto di
+   `firestore.rules` → "Publish" (stesso procedimento del punto 5 sopra).
+   Se pubblichi le regole PRIMA di aver impostato la password, nessuno —
+   nemmeno l'admin — potrà più sbloccarsi dall'app, perché le regole
+   negano l'accesso finché `config/authGate` non esiste.
+
+**Per cambiare la password in futuro:** solo l'admin (Masa) può farlo,
+rieseguendo il comando del punto 2 con la nuova passphrase (nessuna
+interfaccia in-app prevista). In alternativa, è possibile intervenire
+manualmente su Firestore Console modificando il campo `passwordHash` del
+documento `config/authGate` con un hash SHA-256 esadecimale calcolato a
+mano. Cambiare la password non disconnette i device già sbloccati in
+precedenza (restano validi finché non fanno logout): per revocare un
+device specifico, cancella a mano il suo documento in `unlockAttempts`.
 
 ## Nota su Firestore e i filtri
 
