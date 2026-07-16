@@ -138,21 +138,34 @@ service cloud.firestore {
     // password, non per qualunque sessione anonima.
     match /boulder/{boulderId} {
       allow read: if true;
-      allow create, update: if passwordSbloccata();
-      // Cancellazione reale consentita solo su blocchi già passati dal
-      // Cestino (stato: 'rimossa'), sia per la pulizia automatica dopo 7
-      // giorni sia per "Elimina definitivamente" manuale (vedi
-      // src/components/Cestino.jsx), che può scattare anche subito dopo il
-      // soft-delete se il blocco è stato in parete meno di 7 giorni.
-      allow delete: if passwordSbloccata() && resource.data.stato == 'rimossa';
+      allow create: if passwordSbloccata();
+      // Update libero per chi ha superato il gate password, TRANNE sui
+      // blocchi già nel sotto-cestino (inSottocestino: true, vedi
+      // src/components/SottoCestino.jsx): una volta lì, solo un admin può
+      // ancora toccarli (es. "Ripristina"), coerente col fatto che la
+      // pagina è visibile solo agli admin.
+      allow update: if passwordSbloccata()
+        && (resource.data.get('inSottocestino', false) != true || isAdmin());
+      // Hard delete consentito solo su blocchi già passati dal Cestino
+      // (stato: 'rimossa'). Se NON ancora nel sotto-cestino: la pulizia
+      // automatica dei 7gg del Cestino normale (Cestino.jsx) resta aperta
+      // a chiunque abbia superato il gate password. Una volta
+      // inSottocestino: true: solo admin ("Elimina per sempre" manuale o
+      // pulizia 7gg del sotto-cestino, SottoCestino.jsx).
+      allow delete: if passwordSbloccata() && resource.data.stato == 'rimossa'
+        && (resource.data.get('inSottocestino', false) != true || isAdmin());
     }
 
     // Storico: lettura pubblica, scrittura/correzione solo dopo il gate
-    // della password condivisa (correggere/cancellare una voce errata è
-    // previsto, ma solo per chi ha dimostrato di conoscere la password).
+    // della password condivisa (correggere una voce errata è previsto, ma
+    // solo per chi ha dimostrato di conoscere la password).
     match /storico/{storicoId} {
       allow read: if true;
-      allow create, update, delete: if passwordSbloccata();
+      allow create, update: if passwordSbloccata();
+      // La cancellazione di voci storico avviene solo insieme all'hard
+      // delete di un boulder dal sotto-cestino (SottoCestino.jsx), azione
+      // riservata agli admin: vedi allow delete su /boulder sopra.
+      allow delete: if isAdmin();
     }
   }
 }

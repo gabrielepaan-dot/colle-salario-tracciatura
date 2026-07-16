@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { COLORI_PRESE, sfondoColorePrese, testoPerColorePrese, nomeColorePrese } from '../lib/colori'
 import { formattaTempoFa } from '../lib/date'
@@ -11,14 +11,13 @@ import ConfermaDialog from './ConfermaDialog'
 const SETTE_GIORNI_MS = 7 * 24 * 60 * 60 * 1000
 const SFONDO_RIGA_OVERRIDE = { bianco: '#FFFBEB' }
 
-// Pagina raggiungibile solo da Profilo. Ogni apertura fa prima una pulizia:
-// i blocchi rimossi da più di 7 giorni vengono eliminati per sempre da
-// Firestore (nessuna Cloud Function, tutto qui lato client, storico non
-// toccato), poi si mostra la lista di quello che resta nel cestino. I
-// blocchi già passati per "Elimina definitivamente" (inSottocestino: true)
-// sono esclusi qui: vivono in SottoCestino.jsx, raggiungibile solo dagli
-// admin, con la propria pulizia a 7gg che invece cancella anche lo storico.
-export default function Cestino({ tracciatoreLoggato }) {
+// Sotto-pagina di Cestino, raggiungibile solo da Profilo e solo dagli
+// admin (vedi guard sotto). Mostra i blocchi passati per "Elimina
+// definitivamente" dal Cestino normale (inSottocestino: true), non ancora
+// cancellati per sempre. Ogni apertura fa prima una pulizia: i blocchi qui
+// da più di 7 giorni (sottocestinoIl) vengono cancellati per sempre —
+// boulder E storico, a differenza della pulizia 7gg del Cestino normale.
+export default function SottoCestino({ tracciatoreLoggato }) {
   const navigate = useNavigate()
   const [boulders, setBoulders] = useState([])
   const [caricamento, setCaricamento] = useState(true)
@@ -26,29 +25,34 @@ export default function Cestino({ tracciatoreLoggato }) {
   const [azioneInCorso, setAzioneInCorso] = useState(null)
   const [confermaEliminazione, setConfermaEliminazione] = useState(null)
 
+  const isAdmin = !!tracciatoreLoggato?.isAdmin
+
+  const eliminaPerSempre = useCallback(async (boulder) => {
+    const batch = writeBatch(db)
+    batch.delete(doc(db, 'boulder', boulder.id))
+    const storicoSnap = await getDocs(query(collection(db, 'storico'), where('boulderId', '==', boulder.id)))
+    storicoSnap.forEach((s) => batch.delete(s.ref))
+    await batch.commit()
+  }, [])
+
   const carica = useCallback(async () => {
+    if (!isAdmin) return
     setCaricamento(true)
     setErrore(null)
     try {
-      // Niente orderBy nella query: eviterebbe di dover creare un indice
-      // composito manuale su Firebase. Per una lista così piccola ordinare
-      // qui in JS non ha alcun impatto pratico.
-      const q = query(collection(db, 'boulder'), where('stato', '==', 'rimossa'))
+      const q = query(collection(db, 'boulder'), where('inSottocestino', '==', true))
       const snap = await getDocs(q)
       const tutti = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((b) => !b.inSottocestino)
-        .sort((a, b) => (b.rimossoIl?.toMillis?.() ?? 0) - (a.rimossoIl?.toMillis?.() ?? 0))
+        .sort((a, b) => (b.sottocestinoIl?.toMillis?.() ?? 0) - (a.sottocestinoIl?.toMillis?.() ?? 0))
 
       const ora = Date.now()
       const daPurgare = tutti.filter((b) => {
-        const rimossoIlDate = b.rimossoIl?.toDate ? b.rimossoIl.toDate() : null
-        return rimossoIlDate && ora - rimossoIlDate.getTime() > SETTE_GIORNI_MS
+        const sottocestinoIlDate = b.sottocestinoIl?.toDate ? b.sottocestinoIl.toDate() : null
+        return sottocestinoIlDate && ora - sottocestinoIlDate.getTime() > SETTE_GIORNI_MS
       })
       if (daPurgare.length > 0) {
-        const batch = writeBatch(db)
-        daPurgare.forEach((b) => batch.delete(doc(db, 'boulder', b.id)))
-        await batch.commit()
+        await Promise.all(daPurgare.map((b) => eliminaPerSempre(b)))
       }
 
       const idPurgati = new Set(daPurgare.map((b) => b.id))
@@ -58,7 +62,7 @@ export default function Cestino({ tracciatoreLoggato }) {
       console.error(e)
     }
     setCaricamento(false)
-  }, [])
+  }, [isAdmin, eliminaPerSempre])
 
   useEffect(() => {
     carica()
@@ -69,10 +73,9 @@ export default function Cestino({ tracciatoreLoggato }) {
     setErrore(null)
     try {
       await updateDoc(doc(db, 'boulder', boulder.id), {
-        stato: 'attiva',
-        rimossoDa: null,
-        rimossoDaNome: null,
-        rimossoIl: null,
+        inSottocestino: false,
+        sottocestinoIl: null,
+        sottocestinoDa: null,
       })
       await carica()
     } catch (e) {
@@ -82,21 +85,35 @@ export default function Cestino({ tracciatoreLoggato }) {
     setAzioneInCorso(null)
   }
 
-  async function eliminaDefinitivamente(boulder) {
+  async function confermaEliminaPerSempre(boulder) {
     setAzioneInCorso(boulder.id)
     setErrore(null)
     try {
-      await updateDoc(doc(db, 'boulder', boulder.id), {
-        inSottocestino: true,
-        sottocestinoIl: serverTimestamp(),
-        sottocestinoDa: tracciatoreLoggato?.nome ?? null,
-      })
+      await eliminaPerSempre(boulder)
       await carica()
     } catch (e) {
       setErrore('Connessione assente, riprova. Se il problema persiste l\'eliminazione non è andata a buon fine.')
       console.error(e)
     }
     setAzioneInCorso(null)
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-2xl mx-auto p-4 pb-24">
+        <header className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => navigate('/')}
+            className="text-navy text-xl leading-none shrink-0"
+            aria-label="Torna al Profilo"
+          >
+            ←
+          </button>
+          <h1 className="text-lg font-bold text-navy">Recupero admin</h1>
+        </header>
+        <p className="text-center text-gray-400 text-sm py-10">Sezione riservata agli admin.</p>
+      </div>
+    )
   }
 
   return (
@@ -109,8 +126,12 @@ export default function Cestino({ tracciatoreLoggato }) {
         >
           ←
         </button>
-        <h1 className="text-lg font-bold text-navy">Cestino</h1>
+        <h1 className="text-lg font-bold text-navy">Recupero admin</h1>
       </header>
+
+      <p className="text-xs text-gray-400 mb-4">
+        Blocchi/vie eliminati definitivamente dal Cestino. Restano recuperabili qui per 7 giorni, poi vengono cancellati per sempre.
+      </p>
 
       {caricamento && <p className="text-center text-gray-400 text-sm py-10">Caricamento...</p>}
 
@@ -124,7 +145,7 @@ export default function Cestino({ tracciatoreLoggato }) {
       )}
 
       {!caricamento && !errore && boulders.length === 0 && (
-        <p className="text-center text-gray-400 text-sm py-10">Il cestino è vuoto.</p>
+        <p className="text-center text-gray-400 text-sm py-10">Nessun blocco in sotto-cestino.</p>
       )}
 
       {!caricamento && !errore && boulders.length > 0 && (
@@ -168,13 +189,13 @@ export default function Cestino({ tracciatoreLoggato }) {
                 <GradoStar coloreGrado={b.coloreGrado} size="md" />
 
                 <span className="flex items-center gap-1.5 shrink-0 max-w-[7rem]">
-                  <Avatar nome={b.rimossoDaNome} size="sm" />
+                  <Avatar nome={b.sottocestinoDa} size="sm" />
                   <span className="flex flex-col leading-tight min-w-0">
                     <span className="text-xs truncate" style={{ color: testo }}>
-                      {b.rimossoDaNome || 'sconosciuto'}
+                      {b.sottocestinoDa || 'sconosciuto'}
                     </span>
                     <span className="text-[10px] truncate" style={{ color: testoAttenuato }}>
-                      {formattaTempoFa(b.rimossoIl)}
+                      {formattaTempoFa(b.sottocestinoIl)}
                     </span>
                   </span>
                 </span>
@@ -182,17 +203,17 @@ export default function Cestino({ tracciatoreLoggato }) {
                 <div className="flex flex-col gap-1 shrink-0">
                   <button
                     onClick={() => ripristina(b)}
-                    disabled={inCorso || !tracciatoreLoggato}
+                    disabled={inCorso}
                     className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-navy disabled:opacity-40"
                   >
                     {inCorso ? '...' : 'Ripristina'}
                   </button>
                   <button
                     onClick={() => setConfermaEliminazione(b)}
-                    disabled={inCorso || !tracciatoreLoggato}
+                    disabled={inCorso}
                     className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-rosso disabled:opacity-40"
                   >
-                    {inCorso ? '...' : 'Elimina'}
+                    {inCorso ? '...' : 'Elimina per sempre'}
                   </button>
                 </div>
               </div>
@@ -203,15 +224,15 @@ export default function Cestino({ tracciatoreLoggato }) {
 
       {confermaEliminazione && (
         <ConfermaDialog
-          titolo="Eliminare definitivamente?"
-          messaggio="Eliminare definitivamente questo blocco/via? Verrà rimosso anche dalle statistiche e non potrà essere recuperato."
-          testoConferma="Elimina definitivamente"
+          titolo="Eliminare per sempre?"
+          messaggio="L'operazione è irreversibile: boulder/via e storico verranno cancellati per sempre da Firestore."
+          testoConferma="Elimina per sempre"
           testoInCorso="Eliminazione..."
           inCorso={azioneInCorso === confermaEliminazione.id}
           onAnnulla={() => setConfermaEliminazione(null)}
           onConferma={async () => {
             const boulder = confermaEliminazione
-            await eliminaDefinitivamente(boulder)
+            await confermaEliminaPerSempre(boulder)
             setConfermaEliminazione(null)
           }}
         />

@@ -9,6 +9,7 @@ import TuttiBoulder from './components/TuttiBoulder'
 import Statistiche from './components/Statistiche'
 import Profilo from './components/Profilo'
 import Cestino from './components/Cestino'
+import SottoCestino from './components/SottoCestino'
 import BottomNav from './components/BottomNav'
 import BottomNavPubblico from './components/BottomNavPubblico'
 import PubblicoTuttiBoulder from './components/PubblicoTuttiBoulder'
@@ -106,6 +107,7 @@ function AppShell() {
         <Route path="/corda" element={<GrigliaSettori tipo="corda" />} />
         <Route path="/settore/:slug" element={<SettoreDetail tracciatoreLoggato={tracciatore} />} />
         <Route path="/cestino" element={<Cestino tracciatoreLoggato={tracciatore} />} />
+        <Route path="/recupero-admin" element={<SottoCestino tracciatoreLoggato={tracciatore} />} />
       </Routes>
     </div>
   )
