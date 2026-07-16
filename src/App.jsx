@@ -15,8 +15,7 @@ import PubblicoTuttiBoulder from './components/PubblicoTuttiBoulder'
 import PubblicoSettoreDetail from './components/PubblicoSettoreDetail'
 
 function AppShell() {
-  const { tracciatore, unlocked, login, unlock, logout, error } = useAuth()
-  const [mostraLogin, setMostraLogin] = useState(false)
+  const { tracciatore, unlocked, loading, login, unlock, logout, error } = useAuth()
   const [vista, setVista] = useState('home') // 'home' | 'filtri' | 'statistiche' | 'profilo'
   const [vistaPubblico, setVistaPubblico] = useState('home') // 'home' | 'tutti'
   const navigate = useNavigate()
@@ -71,29 +70,18 @@ function AppShell() {
     )
   }
 
-  // Device già collegato a un tracciatore (anche da prima dell'introduzione
-  // della password condivisa) ma non ancora sbloccato su questo device:
-  // si chiede solo la password, il nome è già noto.
-  if (tracciatore && !unlocked) {
-    return <LoginScreen onLogin={login} onUnlock={unlock} loginError={error} nomeFisso={tracciatore.nome} />
+  // Stato di sblocco non ancora noto: nessun contenuto autenticato deve
+  // apparire prima di aver verificato tracciatore + unlockAttempts (evita
+  // flash di Home/Statistiche/altro).
+  if (loading) {
+    return <div className="min-h-screen bg-gray-50" />
   }
 
-  if (mostraLogin && !tracciatore) {
-    return (
-      <LoginScreen
-        onLogin={async (nome) => {
-          const risultato = await login(nome)
-          if (risultato === true) setMostraLogin(false)
-          return risultato
-        }}
-        onUnlock={async (password) => {
-          const ok = await unlock(password)
-          if (ok) setMostraLogin(false)
-          return ok
-        }}
-        loginError={error}
-      />
-    )
+  // Non sbloccato: nome non ancora scelto e/o password non ancora
+  // verificata su questo device. nomeFisso salta la griglia nomi quando
+  // il nome è già noto (device già collegato a un tracciatore).
+  if (!tracciatore || !unlocked) {
+    return <LoginScreen onLogin={login} onUnlock={unlock} loginError={error} nomeFisso={tracciatore?.nome} />
   }
 
   return (
@@ -109,11 +97,7 @@ function AppShell() {
               {vista === 'filtri' && <TuttiBoulder tracciatoreLoggato={tracciatore} />}
               {vista === 'statistiche' && <Statistiche tracciatoreLoggato={tracciatore} />}
               {vista === 'profilo' && (
-                <Profilo
-                  tracciatoreLoggato={tracciatore}
-                  onApriLogin={() => setMostraLogin(true)}
-                  onLogout={logout}
-                />
+                <Profilo tracciatoreLoggato={tracciatore} onLogout={logout} />
               )}
             </>
           }
