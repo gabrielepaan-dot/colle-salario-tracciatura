@@ -1,8 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { sha256Hex } from './hash'
+
+const MAX_TENTATIVI = 5
+const FINESTRA_BLOCCO_MS = 15 * 60 * 1000
+
+function msDaTimestamp(ts) {
+  return ts?.toMillis?.() ?? 0
+}
 
 // Come funziona il login qui, diversamente da Supabase:
 // - Ogni device ottiene automaticamente un'identità Firebase "anonima"
@@ -95,16 +102,58 @@ export function useAuth() {
     }
   }, [uid, caricaTracciatoreDaUid])
 
+  // Registra un tentativo fallito su loginAttempts/{uid}: incrementa il
+  // contatore, oppure lo riparte da 1 se la finestra di blocco precedente
+  // (>=5 fallimenti da oltre 15 minuti) è scaduta. Aggiorna anche il
+  // messaggio d'errore con tentativi rimasti / tempo di attesa.
+  const registraFallimento = useCallback(async (currentUid) => {
+    const ref = doc(db, 'loginAttempts', currentUid)
+    try {
+      const snap = await getDoc(ref)
+      let nuovoCount = 1
+      if (snap.exists()) {
+        const { count, ultimoFallimento } = snap.data()
+        const trascorsi = Date.now() - msDaTimestamp(ultimoFallimento)
+        const finestraScaduta = count >= MAX_TENTATIVI && trascorsi >= FINESTRA_BLOCCO_MS
+        nuovoCount = finestraScaduta ? 1 : count + 1
+      }
+      await setDoc(ref, { count: nuovoCount, ultimoFallimento: serverTimestamp() })
+      if (nuovoCount >= MAX_TENTATIVI) {
+        setError('Password errata. Troppi tentativi falliti: riprova tra 15 minuti.')
+      } else {
+        setError(`Password errata. Tentativi rimasti: ${MAX_TENTATIVI - nuovoCount}.`)
+      }
+    } catch {
+      setError('Password errata.')
+    }
+  }, [])
+
   // Verifica la password condivisa scrivendo unlockAttempts/{uid} (fallisce
-  // con permission-denied se sbagliata, vedi firestore.rules). Su successo,
-  // se c'era una scelta di nome in sospeso, la completa automaticamente.
+  // con permission-denied se sbagliata, vedi firestore.rules). Prima ancora
+  // di tentare, controlla loginAttempts/{uid}: se il device è bloccato per
+  // troppi fallimenti recenti, non tenta nemmeno la scrittura. Su successo,
+  // ripulisce lo storico fallimenti e, se c'era una scelta di nome in
+  // sospeso, la completa automaticamente.
   const unlock = useCallback(async (password) => {
     setError(null)
     if (!uid) return false
+    const attemptsRef = doc(db, 'loginAttempts', uid)
     try {
+      const attemptsSnap = await getDoc(attemptsRef)
+      if (attemptsSnap.exists()) {
+        const { count, ultimoFallimento } = attemptsSnap.data()
+        const trascorsi = Date.now() - msDaTimestamp(ultimoFallimento)
+        if (count >= MAX_TENTATIVI && trascorsi < FINESTRA_BLOCCO_MS) {
+          const minuti = Math.ceil((FINESTRA_BLOCCO_MS - trascorsi) / 60000)
+          setError(`Troppi tentativi falliti. Riprova tra ${minuti} minut${minuti === 1 ? 'o' : 'i'}.`)
+          return false
+        }
+      }
+
       const passwordHash = await sha256Hex(password)
       await setDoc(doc(db, 'unlockAttempts', uid), { passwordHash, ts: serverTimestamp() })
       setUnlocked(true)
+      await deleteDoc(attemptsRef).catch(() => {})
       if (nomeInSospeso) {
         const risultato = await login(nomeInSospeso)
         return risultato === true
@@ -112,13 +161,13 @@ export function useAuth() {
       return true
     } catch (e) {
       if (e.code === 'permission-denied') {
-        setError('Password errata.')
+        await registraFallimento(uid)
         return false
       }
       setError('Connessione assente, riprova.')
       return false
     }
-  }, [uid, nomeInSospeso, login])
+  }, [uid, nomeInSospeso, login, registraFallimento])
 
   const logout = useCallback(async () => {
     try {

@@ -26,6 +26,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    function bloccatoPerRateLimit(uid) {
+      return exists(/databases/$(database)/documents/loginAttempts/$(uid))
+        && get(/databases/$(database)/documents/loginAttempts/$(uid)).data.count >= 5
+        && request.time < get(/databases/$(database)/documents/loginAttempts/$(uid)).data.ultimoFallimento
+             + duration.value(15, 'm');
+    }
+
     match /unlockAttempts/{uid} {
       // Lettura permessa solo al proprietario: serve a "Ricordami" (evitare
       // di richiedere la password ad ogni apertura app sullo stesso
@@ -35,8 +42,55 @@ service cloud.firestore {
       allow read: if autenticato() && request.auth.uid == uid;
       allow create, update: if autenticato()
         && request.auth.uid == uid
+        && !bloccatoPerRateLimit(uid)
         && request.resource.data.keys().hasOnly(['passwordHash', 'ts'])
         && request.resource.data.passwordHash == get(/databases/$(database)/documents/config/authGate).data.passwordHash;
+    }
+
+    // Rate limiting sul gate password: dopo 5 fallimenti consecutivi il
+    // device resta bloccato 15 minuti dall'ultimo fallimento. La finestra
+    // riparte da sola col tempo (bloccatoPerRateLimit() sopra ricalcola ogni
+    // volta confrontando request.time, l'orologio server, col timestamp
+    // server dell'ultimo fallimento — nessuna scrittura necessaria per
+    // "sbloccarsi").
+    //
+    // Anti-reset: un client non può abbassare count o riazzerare la
+    // finestra a piacimento per aggirare il blocco. Le uniche scritture
+    // permesse sono:
+    //  - create: solo count == 1 (primo fallimento in assoluto per l'uid)
+    //  - update: count == count_esistente + 1 (fallimento consecutivo),
+    //    OPPURE count == 1 se la finestra di blocco precedente (count >= 5
+    //    da oltre 15 minuti, verificato su request.time / dato server, non
+    //    su un valore che il client può falsificare) è scaduta davvero.
+    // Il reset a buon fine (delete) è permesso solo a chi ha appena
+    // dimostrato di conoscere la password (passwordSbloccata(), che a sua
+    // volta richiede l'hash corretto su unlockAttempts) — così il reset del
+    // contatore non diventa esso stesso un modo per aggirare il blocco.
+    // Limite noto e accettato: un logout + nuovo uid anonimo ottiene un
+    // loginAttempts pulito da zero; non risolvibile solo con le Rules.
+    match /loginAttempts/{uid} {
+      allow read: if autenticato() && request.auth.uid == uid;
+
+      allow create: if autenticato()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['count', 'ultimoFallimento'])
+        && request.resource.data.count == 1
+        && request.resource.data.ultimoFallimento == request.time;
+
+      allow update: if autenticato()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['count', 'ultimoFallimento'])
+        && request.resource.data.ultimoFallimento == request.time
+        && (
+          request.resource.data.count == resource.data.count + 1
+          || (
+            resource.data.count >= 5
+            && request.time > resource.data.ultimoFallimento + duration.value(15, 'm')
+            && request.resource.data.count == 1
+          )
+        );
+
+      allow delete: if autenticato() && request.auth.uid == uid && passwordSbloccata();
     }
 
     function tracciatoreIdDiUid(uid) {
