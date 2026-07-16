@@ -10,9 +10,13 @@
 //   (default: ./public-snapshot.json)
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, getDocs, query, where } from 'firebase/firestore'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, existsSync } from 'node:fs'
 
-process.loadEnvFile('.env')
+// In locale le VITE_FIREBASE_* vengono dal file .env; in CI (workflow
+// public-snapshot.yml) sono già nell'ambiente via GitHub Secrets e il file
+// .env non esiste (è in .gitignore) — caricarlo incondizionatamente farebbe
+// crashare lo script lì con ENOENT.
+if (existsSync('.env')) process.loadEnvFile('.env')
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
