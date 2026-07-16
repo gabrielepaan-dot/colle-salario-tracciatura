@@ -63,8 +63,6 @@ export default function Statistiche({ tracciatoreLoggato }) {
         where('tipo', '==', tipoAttivo),
         where('stato', '==', 'attiva')
       )
-      const snapAttivi = await getDocs(qAttivi)
-      const attivi = snapAttivi.docs.map((d) => d.data())
 
       // Storico eventi nel periodo, per la classifica tracciatori.
       // Nota: tracciatoreNome è già denormalizzato su ogni voce di storico,
@@ -74,8 +72,23 @@ export default function Statistiche({ tracciatoreLoggato }) {
       const qStorico = inizio
         ? query(collection(db, 'storico'), where('tipo', '==', tipoAttivo), where('dataEvento', '>=', inizio))
         : query(collection(db, 'storico'), where('tipo', '==', tipoAttivo))
-      const snapStorico = await getDocs(qStorico)
-      const eventi = snapStorico.docs.map((d) => d.data())
+
+      // Blocchi nel sotto-cestino (eliminati definitivamente dal Cestino, in
+      // attesa di hard delete o ripristino admin, vedi SottoCestino.jsx): le
+      // loro voci storico restano in Firestore per permettere il ripristino,
+      // ma vanno escluse qui dalla classifica finché un admin non li
+      // ripristina — coerente con quanto promesso nel dialog di conferma di
+      // "Elimina definitivamente" in Cestino.jsx.
+      const qSottocestino = query(collection(db, 'boulder'), where('inSottocestino', '==', true))
+
+      const [snapAttivi, snapStorico, snapSottocestino] = await Promise.all([
+        getDocs(qAttivi),
+        getDocs(qStorico),
+        getDocs(qSottocestino),
+      ])
+      const attivi = snapAttivi.docs.map((d) => d.data())
+      const idSottocestino = new Set(snapSottocestino.docs.map((d) => d.id))
+      const eventi = snapStorico.docs.map((d) => d.data()).filter((e) => !idSottocestino.has(e.boulderId))
 
       // Aggregazione per grado (ordinata facile → difficile)
       const conteggioGrado = {}
