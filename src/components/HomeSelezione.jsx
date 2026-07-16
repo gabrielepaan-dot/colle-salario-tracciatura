@@ -5,7 +5,12 @@ import './HomeSelezione.css'
 // Corda. Design fedele al mockup validato da Gabriele (vedi PR/spec
 // "Separazione Boulder / Corda") — gradienti radiali e curva animata non
 // esprimibili con utility Tailwind, quindi CSS dedicato in HomeSelezione.css.
-export default function HomeSelezione() {
+// boulderTo/cordaTo: personalizzano le destinazioni di navigazione così
+// questo componente è riusabile invariato anche dalla Vista pubblica
+// (#/pubblico), che vive sotto un prefisso diverso dall'app autenticata.
+// verbo: "tracciamo" per i tracciatori, "scaliamo" per i clienti nella Vista
+// pubblica — stessa domanda, punto di vista diverso.
+export default function HomeSelezione({ boulderTo = '/boulder', cordaTo = '/corda', verbo = 'tracciamo' }) {
   const navigate = useNavigate()
 
   return (
@@ -15,7 +20,7 @@ export default function HomeSelezione() {
           A.S.D. Colle Salario
         </div>
         <h1 className="font-archivo text-[28px] leading-[1.05] mt-1.5">
-          Dove tracciamo
+          Dove {verbo}
           <br />
           oggi?
         </h1>
@@ -24,7 +29,7 @@ export default function HomeSelezione() {
       <div className="home-selezione__choices">
         <button
           type="button"
-          onClick={() => navigate('/boulder')}
+          onClick={() => navigate(boulderTo)}
           className="home-card home-card--boulder"
           aria-label="Vai alla sezione Boulder"
         >
@@ -55,7 +60,7 @@ export default function HomeSelezione() {
 
         <button
           type="button"
-          onClick={() => navigate('/corda')}
+          onClick={() => navigate(cordaTo)}
           className="home-card home-card--corda"
           aria-label="Vai alla sezione Corda"
         >

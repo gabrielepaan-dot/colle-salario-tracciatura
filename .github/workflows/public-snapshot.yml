@@ -1,0 +1,67 @@
+name: Genera snapshot pubblico
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-snapshot
+  cancel-in-progress: true
+
+jobs:
+  genera:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codice (main)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installa dipendenze
+        run: npm ci
+
+      - name: Genera public-snapshot.json
+        run: node scripts/generate-public-snapshot.mjs /tmp/public-snapshot.json
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      # Pubblica il JSON su un branch orfano dedicato ("public-data"), MAI su
+      # main: così questo workflow non fa mai scattare deploy.yml (che si
+      # attiva solo su push a main) e non serve mai un "npm run build".
+      - name: Pubblica su branch public-data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin public-data || true
+          if git show-ref --verify --quiet refs/remotes/origin/public-data; then
+            git checkout -B public-data origin/public-data
+          else
+            git checkout --orphan public-data
+            git rm -rf . > /dev/null
+          fi
+
+          cp /tmp/public-snapshot.json ./public-snapshot.json
+          git add public-snapshot.json
+
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica ai dati, nulla da pubblicare."
+          else
+            git commit -m "Aggiorna snapshot pubblico"
+            git push origin public-data
+          fi
