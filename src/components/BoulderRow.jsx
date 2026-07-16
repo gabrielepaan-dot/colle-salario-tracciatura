@@ -56,12 +56,12 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
         </span>
       )}
 
-      <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
+      <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-14">
         {nomeColorePrese(colorePrese)}
         {boulder.old && <span className="font-normal normal-case"> · old</span>}
       </span>
 
-      <span className="flex items-center gap-1.5 shrink-0 w-[6.5rem]">
+      <span className="flex items-center gap-1.5 shrink min-w-12 w-[6.5rem]">
         <Avatar nome={tracciatoreNome} size="sm" />
         <span className="text-xs truncate min-w-0" style={{ color: testo }}>
           {tracciatoreNome}
