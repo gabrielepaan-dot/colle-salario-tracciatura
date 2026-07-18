@@ -44,11 +44,9 @@ service cloud.firestore {
     }
 
     // unlockAttempts/{uid} è l'unico documento che registra sia il tentativo
-    // di sblocco sia il conteggio dei fallimenti (prima erano due collection
-    // separate: unlockAttempts + loginAttempts, rimossa qui in fase 2 del
-    // 2026-07-18 dopo aver confermato il nuovo frontend live). Il punto è
-    // che "tentare un hash" e "far avanzare il contatore" sono la STESSA
-    // scrittura: le Rules accettano solo due forme —
+    // di sblocco sia il conteggio dei fallimenti. Il punto è che "tentare un
+    // hash" e "far avanzare il contatore" sono la STESSA scrittura: le Rules
+    // accettano solo due forme —
     //  (a) hash corretto -> tentativi torna a 0 (sblocco riuscito)
     //  (b) hash sbagliato -> tentativi DEVE avanzare esattamente di 1
     //      (o ripartire da 1 se la finestra di blocco precedente è scaduta),
