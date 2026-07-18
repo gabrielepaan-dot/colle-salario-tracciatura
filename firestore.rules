@@ -34,9 +34,8 @@ service cloud.firestore {
 
     // Rate limiting letto direttamente da unlockAttempts/{uid} (vedi sotto):
     // dopo 5 tentativi falliti consecutivi il device resta bloccato 15
-    // minuti dall'ultimo tentativo. .get(campo, default) protegge il periodo
-    // di transizione in cui possono ancora esistere documenti nel vecchio
-    // formato (senza il campo "tentativi").
+    // minuti dall'ultimo tentativo. .get(campo, default) resta come
+    // protezione difensiva contro un documento senza il campo "tentativi".
     function bloccatoPerRateLimit(uid) {
       return exists(/databases/$(database)/documents/unlockAttempts/$(uid))
         && get(/databases/$(database)/documents/unlockAttempts/$(uid)).data.get('tentativi', 0) >= 5
@@ -44,28 +43,20 @@ service cloud.firestore {
              + duration.value(15, 'm');
     }
 
-    // unlockAttempts/{uid} è ORA l'unico documento che registra sia il
-    // tentativo di sblocco sia il conteggio dei fallimenti (prima erano due
-    // collection separate: unlockAttempts + loginAttempts). Il punto è che
-    // "tentare un hash" e "far avanzare il contatore" sono diventati la
-    // STESSA scrittura: le Rules accettano solo due forme —
+    // unlockAttempts/{uid} è l'unico documento che registra sia il tentativo
+    // di sblocco sia il conteggio dei fallimenti (prima erano due collection
+    // separate: unlockAttempts + loginAttempts, rimossa qui in fase 2 del
+    // 2026-07-18 dopo aver confermato il nuovo frontend live). Il punto è
+    // che "tentare un hash" e "far avanzare il contatore" sono la STESSA
+    // scrittura: le Rules accettano solo due forme —
     //  (a) hash corretto -> tentativi torna a 0 (sblocco riuscito)
     //  (b) hash sbagliato -> tentativi DEVE avanzare esattamente di 1
     //      (o ripartire da 1 se la finestra di blocco precedente è scaduta),
     //      stessa aritmetica anti-manomissione di prima: niente reset o
     //      decrementi a piacere del client.
-    // Non esiste più un modo di scrivere un "tentativo" senza che Firestore
+    // Non esiste un modo di scrivere un "tentativo" senza che Firestore
     // stesso lo conteggi, indipendentemente da cosa fa il client (bypassando
     // l'app e usando l'SDK direttamente, come nel buco originale).
-    //
-    // FASE DI TRANSIZIONE (Fase 1 audit sicurezza pre-apertura pubblica,
-    // introdotta 2026-07-18): finché il nuovo useAuth.js non è confermato
-    // live su tutti i device, questo blocco accetta ANCHE la vecchia forma a
-    // 2 campi (passwordHash, ts) senza contatore, per non rompere il login
-    // di chi sta ancora usando il bundle JS precedente durante il deploy.
-    // TODO(fase2-tightening): appena confermato che il nuovo frontend è
-    // online, rimuovere il "ramo legacy" segnalato sotto — è quella
-    // rimozione a chiudere davvero il buco del rate limiting bypassabile.
     match /unlockAttempts/{uid} {
       // Lettura permessa solo al proprietario: serve a "Ricordami" (evitare
       // di richiedere la password ad ogni apertura app sullo stesso
@@ -77,78 +68,36 @@ service cloud.firestore {
       allow create, update: if autenticato()
         && request.auth.uid == uid
         && !bloccatoPerRateLimit(uid)
+        && request.resource.data.keys().hasOnly(['passwordHash', 'ts', 'tentativi'])
+        && request.resource.data.ts == request.time
         && (
-          // --- ramo nuovo: tentativo + contatore nella stessa scrittura ---
           (
-            request.resource.data.keys().hasOnly(['passwordHash', 'ts', 'tentativi'])
-            && request.resource.data.ts == request.time
+            request.resource.data.passwordHash
+              == get(/databases/$(database)/documents/config/authGate).data.passwordHash
+            && request.resource.data.tentativi == 0
+          )
+          || (
+            request.resource.data.passwordHash
+              != get(/databases/$(database)/documents/config/authGate).data.passwordHash
             && (
               (
-                request.resource.data.passwordHash
-                  == get(/databases/$(database)/documents/config/authGate).data.passwordHash
-                && request.resource.data.tentativi == 0
+                !exists(/databases/$(database)/documents/unlockAttempts/$(uid))
+                && request.resource.data.tentativi == 1
               )
               || (
-                request.resource.data.passwordHash
-                  != get(/databases/$(database)/documents/config/authGate).data.passwordHash
-                && (
-                  (
-                    !exists(/databases/$(database)/documents/unlockAttempts/$(uid))
-                    && request.resource.data.tentativi == 1
-                  )
-                  || (
-                    exists(/databases/$(database)/documents/unlockAttempts/$(uid))
-                    && request.resource.data.tentativi
-                         == resource.data.get('tentativi', 0) + 1
-                  )
-                  || (
-                    exists(/databases/$(database)/documents/unlockAttempts/$(uid))
-                    && resource.data.get('tentativi', 0) >= 5
-                    && request.time > resource.data.ts + duration.value(15, 'm')
-                    && request.resource.data.tentativi == 1
-                  )
-                )
+                exists(/databases/$(database)/documents/unlockAttempts/$(uid))
+                && request.resource.data.tentativi
+                     == resource.data.get('tentativi', 0) + 1
+              )
+              || (
+                exists(/databases/$(database)/documents/unlockAttempts/$(uid))
+                && resource.data.get('tentativi', 0) >= 5
+                && request.time > resource.data.ts + duration.value(15, 'm')
+                && request.resource.data.tentativi == 1
               )
             )
           )
-          // --- ramo LEGACY (temporaneo, vedi TODO(fase2-tightening) sopra) ---
-          || (
-            request.resource.data.keys().hasOnly(['passwordHash', 'ts'])
-            && request.resource.data.passwordHash
-                 == get(/databases/$(database)/documents/config/authGate).data.passwordHash
-          )
         );
-    }
-
-    // loginAttempts resta qui SOLO per compatibilità col frontend non ancora
-    // aggiornato (che in caso di hash sbagliato scrive ancora qui invece che
-    // nel contatore unificato dentro unlockAttempts). Da rimuovere insieme al
-    // ramo legacy sopra in fase 2 — a quel punto questa collection non verrà
-    // più scritta da nessun client aggiornato.
-    // TODO(fase2-tightening): rimuovere questo intero blocco.
-    match /loginAttempts/{uid} {
-      allow read: if autenticato() && request.auth.uid == uid;
-
-      allow create: if autenticato()
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['count', 'ultimoFallimento'])
-        && request.resource.data.count == 1
-        && request.resource.data.ultimoFallimento == request.time;
-
-      allow update: if autenticato()
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['count', 'ultimoFallimento'])
-        && request.resource.data.ultimoFallimento == request.time
-        && (
-          request.resource.data.count == resource.data.count + 1
-          || (
-            resource.data.count >= 5
-            && request.time > resource.data.ultimoFallimento + duration.value(15, 'm')
-            && request.resource.data.count == 1
-          )
-        );
-
-      allow delete: if autenticato() && request.auth.uid == uid && passwordSbloccata();
     }
 
     function tracciatoreIdDiUid(uid) {
