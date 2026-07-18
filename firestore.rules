@@ -164,9 +164,17 @@ service cloud.firestore {
     // Storico: lettura pubblica, scrittura/correzione solo dopo il gate
     // della password condivisa (correggere una voce errata è previsto, ma
     // solo per chi ha dimostrato di conoscere la password).
+    //
+    // eseguitoDaUid (chi ha fisicamente inserito il dato) deve SEMPRE
+    // combaciare con request.auth.uid: a differenza di tracciatoreId/
+    // tracciatoreNome (a chi si attribuisce il merito del blocco, libero di
+    // essere un altro tracciatore per design, vedi BoulderForm.jsx), questo
+    // campo registra l'identità reale di chi scrive e non deve essere
+    // falsificabile lato client scegliendo un altro stato React.
     match /storico/{storicoId} {
       allow read: if true;
-      allow create, update: if passwordSbloccata();
+      allow create, update: if passwordSbloccata()
+        && request.resource.data.eseguitoDaUid == request.auth.uid;
       // La cancellazione di voci storico avviene solo insieme all'hard
       // delete di un boulder dal sotto-cestino (SottoCestino.jsx), azione
       // riservata agli admin: vedi allow delete su /boulder sopra.
