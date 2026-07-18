@@ -80,6 +80,22 @@ export default function BoulderForm({
   // rimuovendolo (cestino in Dettaglio settore / Filtri), mai da qui.
   const stato = mode === 'create' ? 'attiva' : boulderEsistente?.stato || 'attiva'
 
+  // Se il tracciatore salvato sul boulder non è più tra quelli attuali
+  // (rimosso da AdminPanel), va comunque offerto come opzione selezionabile
+  // nella select — altrimenti al salvataggio il .find() sotto non lo trova
+  // più e tracciatoreNome verrebbe azzerato silenziosamente, perdendo
+  // l'attribuzione storica. Il nome mostrato è quello già salvato sul
+  // documento (unica fonte rimasta), marcato come non più attivo.
+  const tracciatoreRimosso =
+    mode === 'update' &&
+    boulderEsistente?.tracciatoreId &&
+    boulderEsistente.tracciatoreNome &&
+    boulderEsistente.tracciatoreNome !== 'Altri' &&
+    !tracciatori.some((t) => t.id === boulderEsistente.tracciatoreId)
+      ? { id: boulderEsistente.tracciatoreId, nome: boulderEsistente.tracciatoreNome, rimosso: true }
+      : null
+  const tracciatoriPerSelezione = tracciatoreRimosso ? [...tracciatori, tracciatoreRimosso] : tracciatori
+
   // Il grado è sempre facoltativo: si può salvare/aggiornare un boulder
   // senza grado, o rimuovere un grado già impostato.
   const valido =
@@ -194,7 +210,9 @@ export default function BoulderForm({
         // card rispetto a un evento già più recente.
         const tracciatoreIdDaSalvare = tracciatoreId === TRACCIATORE_ALTRI ? null : tracciatoreId
         const tracciatoreNome =
-          tracciatoreId === TRACCIATORE_ALTRI ? 'Altri' : tracciatori.find((t) => t.id === tracciatoreId)?.nome || ''
+          tracciatoreId === TRACCIATORE_ALTRI
+            ? 'Altri'
+            : tracciatoriPerSelezione.find((t) => t.id === tracciatoreId)?.nome || ''
         const eIlPiuRecente = dataEvento >= (boulderEsistente.dataUltimoCambio || '')
         if (eIlPiuRecente) {
           const boulderRef = doc(db, 'boulder', boulderEsistente.id)
@@ -470,15 +488,20 @@ export default function BoulderForm({
               <div className="mb-4">
                 <p className="text-xs text-gray-400 mb-2">Tracciatore</p>
                 <div className="flex flex-wrap gap-2">
-                  {tracciatori.map((t) => (
+                  {tracciatoriPerSelezione.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setTracciatoreId(t.id)}
                       className={`px-3 py-1.5 rounded-full text-sm border ${
-                        tracciatoreId === t.id ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+                        tracciatoreId === t.id
+                          ? 'bg-navy text-white border-navy'
+                          : t.rimosso
+                          ? 'border-dashed border-gray-300 text-gray-400 italic'
+                          : 'border-gray-200 text-gray-600'
                       }`}
                     >
                       {t.nome}
+                      {t.rimosso ? ' (rimosso)' : ''}
                     </button>
                   ))}
                   <button
