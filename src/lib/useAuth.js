@@ -102,48 +102,56 @@ export function useAuth() {
     }
   }, [uid, caricaTracciatoreDaUid])
 
-  // Registra un tentativo fallito su loginAttempts/{uid}: incrementa il
-  // contatore, oppure lo riparte da 1 se la finestra di blocco precedente
-  // (>=5 fallimenti da oltre 15 minuti) è scaduta. Aggiorna anche il
-  // messaggio d'errore con tentativi rimasti / tempo di attesa.
-  const registraFallimento = useCallback(async (currentUid) => {
-    const ref = doc(db, 'loginAttempts', currentUid)
+  // Registra un tentativo fallito scrivendo direttamente su
+  // unlockAttempts/{uid} (non più una collection separata: le Rules
+  // impongono che l'incremento del contatore avvenga nella STESSA scrittura
+  // che tenta l'hash, vedi firestore.rules — impossibile "provare" un hash
+  // senza che Firestore stesso lo contabilizzi). Stessa aritmetica
+  // anti-reset di prima: incrementa, oppure riparte da 1 se la finestra di
+  // blocco precedente (>=5 fallimenti da oltre 15 minuti) è scaduta davvero.
+  const registraFallimento = useCallback(async (currentUid, hashSbagliato, statoAttuale) => {
+    let nuovoCount = 1
+    if (statoAttuale) {
+      const { tentativi = 0, ts } = statoAttuale
+      const trascorsi = Date.now() - msDaTimestamp(ts)
+      const finestraScaduta = tentativi >= MAX_TENTATIVI && trascorsi >= FINESTRA_BLOCCO_MS
+      nuovoCount = finestraScaduta ? 1 : tentativi + 1
+    }
     try {
-      const snap = await getDoc(ref)
-      let nuovoCount = 1
-      if (snap.exists()) {
-        const { count, ultimoFallimento } = snap.data()
-        const trascorsi = Date.now() - msDaTimestamp(ultimoFallimento)
-        const finestraScaduta = count >= MAX_TENTATIVI && trascorsi >= FINESTRA_BLOCCO_MS
-        nuovoCount = finestraScaduta ? 1 : count + 1
-      }
-      await setDoc(ref, { count: nuovoCount, ultimoFallimento: serverTimestamp() })
-      if (nuovoCount >= MAX_TENTATIVI) {
-        setError('Password errata. Troppi tentativi falliti: riprova tra 15 minuti.')
-      } else {
-        setError(`Password errata. Tentativi rimasti: ${MAX_TENTATIVI - nuovoCount}.`)
-      }
+      await setDoc(doc(db, 'unlockAttempts', currentUid), {
+        passwordHash: hashSbagliato,
+        tentativi: nuovoCount,
+        ts: serverTimestamp(),
+      })
     } catch {
-      setError('Password errata.')
+      // Se anche questa scrittura viene rifiutata (es. rate limit scattato
+      // nel frattempo), il messaggio sotto resta comunque corretto.
+    }
+    if (nuovoCount >= MAX_TENTATIVI) {
+      setError('Password errata. Troppi tentativi falliti: riprova tra 15 minuti.')
+    } else {
+      setError(`Password errata. Tentativi rimasti: ${MAX_TENTATIVI - nuovoCount}.`)
     }
   }, [])
 
   // Verifica la password condivisa scrivendo unlockAttempts/{uid} (fallisce
   // con permission-denied se sbagliata, vedi firestore.rules). Prima ancora
-  // di tentare, controlla loginAttempts/{uid}: se il device è bloccato per
+  // di tentare, legge lo stato attuale: se il device è già bloccato per
   // troppi fallimenti recenti, non tenta nemmeno la scrittura. Su successo,
-  // ripulisce lo storico fallimenti e, se c'era una scelta di nome in
-  // sospeso, la completa automaticamente.
+  // il contatore fallimenti torna a 0 nella stessa scrittura (non serve più
+  // una delete separata) e, se c'era una scelta di nome in sospeso, la
+  // completa automaticamente.
   const unlock = useCallback(async (password) => {
     setError(null)
     if (!uid) return false
-    const attemptsRef = doc(db, 'loginAttempts', uid)
+    const ref = doc(db, 'unlockAttempts', uid)
     try {
-      const attemptsSnap = await getDoc(attemptsRef)
-      if (attemptsSnap.exists()) {
-        const { count, ultimoFallimento } = attemptsSnap.data()
-        const trascorsi = Date.now() - msDaTimestamp(ultimoFallimento)
-        if (count >= MAX_TENTATIVI && trascorsi < FINESTRA_BLOCCO_MS) {
+      const snap = await getDoc(ref)
+      const statoAttuale = snap.exists() ? snap.data() : null
+      if (statoAttuale) {
+        const { tentativi = 0, ts } = statoAttuale
+        const trascorsi = Date.now() - msDaTimestamp(ts)
+        if (tentativi >= MAX_TENTATIVI && trascorsi < FINESTRA_BLOCCO_MS) {
           const minuti = Math.ceil((FINESTRA_BLOCCO_MS - trascorsi) / 60000)
           setError(`Troppi tentativi falliti. Riprova tra ${minuti} minut${minuti === 1 ? 'o' : 'i'}.`)
           return false
@@ -151,19 +159,22 @@ export function useAuth() {
       }
 
       const passwordHash = await sha256Hex(password)
-      await setDoc(doc(db, 'unlockAttempts', uid), { passwordHash, ts: serverTimestamp() })
+      try {
+        await setDoc(ref, { passwordHash, tentativi: 0, ts: serverTimestamp() })
+      } catch (e) {
+        if (e.code === 'permission-denied') {
+          await registraFallimento(uid, passwordHash, statoAttuale)
+          return false
+        }
+        throw e
+      }
       setUnlocked(true)
-      await deleteDoc(attemptsRef).catch(() => {})
       if (nomeInSospeso) {
         const risultato = await login(nomeInSospeso)
         return risultato === true
       }
       return true
-    } catch (e) {
-      if (e.code === 'permission-denied') {
-        await registraFallimento(uid)
-        return false
-      }
+    } catch {
       setError('Connessione assente, riprova.')
       return false
     }

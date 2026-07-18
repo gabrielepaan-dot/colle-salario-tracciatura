@@ -93,6 +93,28 @@ export default function LoginScreen({ onLogin, onUnlock, loginError, nomeFisso }
         {loginError && (
           <p className="text-rosso text-sm text-center">{loginError}</p>
         )}
+
+        <p className="text-xs text-gray-400 text-center max-w-sm">
+          Questo sito è protetto da reCAPTCHA. Si applicano la{' '}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Privacy Policy
+          </a>{' '}
+          e i{' '}
+          <a
+            href="https://policies.google.com/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Termini di servizio
+          </a>{' '}
+          di Google.
+        </p>
       </div>
     )
   }

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -24,3 +25,30 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+// App Check (reCAPTCHA v3): livello aggiuntivo, complementare alle Security
+// Rules, per attestare che le richieste a Firestore arrivino dall'app vera
+// e non da script/bot. In sviluppo locale (npm run dev) Firebase non accetta
+// token reCAPTCHA per il dominio "localhost": si usa invece un debug token,
+// generato automaticamente e stampato in console al primo avvio — va
+// registrato una tantum in Firebase Console (App Check > gestisci token di
+// debug) perché il flusso locale continui a funzionare.
+// L'enforcement (bloccare le richieste senza token valido) NON si attiva da
+// qui: è un interruttore separato in Firebase Console (Firestore > App
+// Check), lasciato volutamente in modalità "monitor" finché non viene
+// attivato manualmente.
+if (import.meta.env.DEV) {
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true
+}
+
+const recaptchaSiteKey = import.meta.env.VITE_FIREBASE_RECAPTCHA_SITE_KEY
+if (recaptchaSiteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  })
+} else {
+  console.error(
+    'VITE_FIREBASE_RECAPTCHA_SITE_KEY mancante: App Check non è attivo (vedi .env.example).'
+  )
+}
