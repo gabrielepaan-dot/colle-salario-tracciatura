@@ -1,0 +1,74 @@
+name: Backup Firestore
+
+on:
+  schedule:
+    - cron: '7 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backup-firestore
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout codice (main)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installa dipendenze
+        run: npm ci
+
+      - name: Genera backup.json
+        run: node scripts/backup-firestore.mjs /tmp/backup.json
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      # Un backup al giorno = una release taggata "backup-YYYY-MM-DD".
+      # Idempotente: se il workflow viene rilanciato lo stesso giorno
+      # (workflow_dispatch manuale), sovrascrive l'asset della release
+      # invece di fallire per tag già esistente.
+      - name: Pubblica backup come GitHub Release
+        run: |
+          TAG="backup-$(date -u +%F)"
+          TITOLO="Backup Firestore $(date -u +%F)"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" /tmp/backup.json --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" /tmp/backup.json \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TITOLO" \
+              --notes "Export automatico giornaliero (boulder, storico, tracciatori)."
+          fi
+
+      # Retention: tiene solo gli ultimi 30 backup, elimina i più vecchi
+      # (release + tag associato).
+      - name: Elimina backup più vecchi dei 30 più recenti
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 500 --json tagName \
+            --jq '.[].tagName' \
+            | grep '^backup-' \
+            | sort -r \
+            | tail -n +31 \
+            | while read -r vecchio; do
+                echo "Elimino release obsoleta: $vecchio"
+                gh release delete "$vecchio" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+              done
