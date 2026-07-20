@@ -1,0 +1,109 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "colorePrese", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "settore", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "settore", "order": "ASCENDING" },
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "settore", "order": "ASCENDING" },
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "boulder",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tracciatoreId", "order": "ASCENDING" },
+        { "fieldPath": "dataUltimoCambio", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "storico",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "dataEvento", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    }
+  ],
+  "fieldOverrides": []
+}
