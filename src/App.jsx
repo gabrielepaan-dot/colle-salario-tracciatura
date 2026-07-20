@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
+import { usePubblicoSnapshot } from './lib/pubblicoSnapshot'
 import LoginScreen from './components/LoginScreen'
 import HomeSelezione from './components/HomeSelezione'
 import GrigliaSettori from './components/GrigliaSettori'
@@ -14,6 +15,28 @@ import BottomNav from './components/BottomNav'
 import BottomNavPubblico from './components/BottomNavPubblico'
 import PubblicoTuttiBoulder from './components/PubblicoTuttiBoulder'
 import PubblicoSettoreDetail from './components/PubblicoSettoreDetail'
+
+// Indicatore di staleness della Vista pubblica: mostra l'orario locale in cui
+// lo snapshot statico è stato generato (campo generatoIl, aggiornato ogni
+// ~15 minuti da .github/workflows/public-snapshot.yml). Nessun testo se lo
+// snapshot non è ancora arrivato o il fetch è fallito: il resto della pagina
+// gestisce già caricamento/errore, questo badge resta solo un'informazione
+// accessoria.
+function AggiornatoAlleBadge() {
+  const { dati } = usePubblicoSnapshot()
+  if (!dati?.generatoIl) return null
+
+  const orario = new Date(dati.generatoIl).toLocaleTimeString('it-IT', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  return (
+    <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-white/90 text-gray-500 shadow">
+      Aggiornato alle {orario}
+    </span>
+  )
+}
 
 function AppShell() {
   const { tracciatore, unlocked, loading, login, unlock, logout, error } = useAuth()
@@ -42,9 +65,12 @@ function AppShell() {
   if (location.pathname.startsWith('/pubblico')) {
     return (
       <div className="sm:pl-48">
-        <span className="fixed top-2 right-2 z-50 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-navy text-white shadow">
-          Vista pubblica
-        </span>
+        <div className="fixed top-2 right-2 z-50 flex flex-col items-end gap-1">
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-navy text-white shadow">
+            Vista pubblica
+          </span>
+          <AggiornatoAlleBadge />
+        </div>
         <BottomNavPubblico vista={vistaPubblico} onCambiaVista={cambiaVistaPubblico} />
         <Routes>
           <Route
