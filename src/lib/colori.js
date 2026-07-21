@@ -38,8 +38,8 @@ export const ORDINE_GRADI = Object.keys(COLORI_GRADO)
 export const LISTA_SETTORI = [
   'Parete 1', 'Parete 2', 'Parete 3',
   'Sala boulder dx', 'Sala boulder sx',
-  'Tetto dx (giallo)', 'Diamond', 'Tetto',
-  'Torre Alta', 'Torre bassa arancio',
+  'Strapiombo giallo', 'Diamond', 'Tetto',
+  'Torre Alta', 'Torre bassa',
 ]
 
 export const LISTA_SETTORI_CORDA = Array.from({ length: 10 }, (_, i) => `Corda ${i + 1}`)
