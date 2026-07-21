@@ -51,7 +51,7 @@ export default function LoginScreen({ onLogin, onUnlock, loginError, nomeFisso }
   if (fase === 'password') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6 bg-gray-50">
-        <img src="/colle-salario-tracciatura/logo.svg" alt="" className="w-16 h-16" />
+        <img src="./logo.svg" alt="" className="w-16 h-16" />
         <div className="text-center">
           <h1 className="text-xl font-bold text-navy">
             {nomeScelto ? `Ciao ${nomeScelto}` : 'Password'}
@@ -121,7 +121,7 @@ export default function LoginScreen({ onLogin, onUnlock, loginError, nomeFisso }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6 bg-gray-50">
-      <img src="/colle-salario-tracciatura/logo.svg" alt="" className="w-16 h-16" />
+      <img src="./logo.svg" alt="" className="w-16 h-16" />
       <div className="text-center">
         <h1 className="text-xl font-bold text-navy">Chi sei?</h1>
         <p className="text-sm text-gray-500 mt-1">Scegli il tuo nome per poter tracciare</p>

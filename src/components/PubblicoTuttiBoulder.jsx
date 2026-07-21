@@ -53,7 +53,7 @@ export default function PubblicoTuttiBoulder() {
   return (
     <div className="max-w-2xl mx-auto p-4 pb-24">
       <header className="flex items-center gap-3 mb-4">
-        <img src="/colle-salario-tracciatura/logo.svg" alt="" className="w-9 h-9" />
+        <img src="./logo.svg" alt="" className="w-9 h-9" />
         <h1 className="text-lg font-bold text-navy">Tutti i boulder e le vie</h1>
       </header>
 

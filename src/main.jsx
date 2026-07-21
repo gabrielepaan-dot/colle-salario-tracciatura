@@ -13,6 +13,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // rendere l'app installabile su Android/Chrome, nessuna cache/offline.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/colle-salario-tracciatura/sw.js')
+    navigator.serviceWorker.register('./sw.js')
   })
 }

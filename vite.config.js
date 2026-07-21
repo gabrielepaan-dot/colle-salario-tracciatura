@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Il repo si chiama "colle-salario-tracciatura": GitHub Pages serve il sito
-// da https://<utente>.github.io/colle-salario-tracciatura/, quindi Vite deve
-// sapere che l'app NON vive alla root del dominio.
+// Base relativa: l'app viene pubblicata sia su GitHub Pages (sotto un
+// sottopercorso, /colle-salario-tracciatura/) sia su Firebase Hosting (alla
+// radice del dominio, es. climbing-free.web.app/). Con base relativo lo
+// stesso build funziona identico su entrambi.
 export default defineConfig({
   plugins: [react()],
-  base: '/colle-salario-tracciatura/',
+  base: './',
 })

@@ -21,7 +21,7 @@ export default function GrigliaSettori({ tipo, backTo = '/', settorePathBase = '
         >
           ←
         </button>
-        <img src="/colle-salario-tracciatura/logo.svg" alt="" className="w-9 h-9" />
+        <img src="./logo.svg" alt="" className="w-9 h-9" />
         <h1 className="text-lg font-bold text-navy">{titolo}</h1>
       </header>
 

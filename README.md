@@ -1,4 +1,4 @@
-# Tracciatura Boulder — A.S.D. Colle Salario
+# Climbing Free — A.S.D. Colle Salario
 
 ## Setup da desktop (prima volta)
 
