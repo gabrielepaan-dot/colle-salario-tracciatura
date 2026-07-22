@@ -128,7 +128,7 @@ export default function Statistiche({ tracciatoreLoggato }) {
   const [attiviTutti, setAttiviTutti] = useState([])
   const [idSottocestino, setIdSottocestino] = useState(new Set())
   const [eventiCompletiRaw, setEventiCompletiRaw] = useState([])
-  const [rimossi, setRimossi] = useState([])
+  const [rimossiTutti, setRimossiTutti] = useState([])
 
   const [caricamentoBase, setCaricamentoBase] = useState(true)
   const [caricamentoTipo, setCaricamentoTipo] = useState(true)
@@ -147,15 +147,24 @@ export default function Statistiche({ tracciatoreLoggato }) {
   // qAttiviTutti riunisce entrambi i tipi in un'unica fetch (serve sia per
   // i due totali sempre visibili, sia — filtrato in JS — per i grafici per
   // grado/settore del tipo selezionato) invece di due query separate.
+  // qRimossiTutti riunisce entrambi i tipi per la card "durata media prima
+  // della rimozione", che mostra boulder e vie insieme indipendentemente
+  // dal toggle.
   const caricaBase = useCallback(async () => {
     setCaricamentoBase(true)
     setErrore(null)
     try {
       const qAttiviTutti = query(collection(db, 'boulder'), where('stato', '==', 'attiva'))
       const qSottocestino = query(collection(db, 'boulder'), where('inSottocestino', '==', true))
-      const [snapAttivi, snapSottocestino] = await Promise.all([getDocs(qAttiviTutti), getDocs(qSottocestino)])
+      const qRimossiTutti = query(collection(db, 'boulder'), where('stato', '==', 'rimossa'))
+      const [snapAttivi, snapSottocestino, snapRimossi] = await Promise.all([
+        getDocs(qAttiviTutti),
+        getDocs(qSottocestino),
+        getDocs(qRimossiTutti),
+      ])
       setAttiviTutti(snapAttivi.docs.map((d) => d.data()))
       setIdSottocestino(new Set(snapSottocestino.docs.map((d) => d.id)))
+      setRimossiTutti(snapRimossi.docs.map((d) => d.data()))
     } catch (e) {
       setErrore('Connessione assente, riprova.')
       console.error(e)
@@ -164,22 +173,16 @@ export default function Statistiche({ tracciatoreLoggato }) {
   }, [])
 
   // Dati che dipendono dal tipo selezionato: storico COMPLETO (non limitato
-  // al periodo, a differenza della vecchia query) e boulder rimossi, per
-  // poter calcolare grado medio/settore preferito/durata media su tutto lo
-  // storico disponibile senza rifetchare a ogni cambio di "periodo".
+  // al periodo, a differenza della vecchia query), per poter calcolare
+  // grado medio/settore preferito su tutto lo storico disponibile senza
+  // rifetchare a ogni cambio di "periodo".
   const caricaPerTipo = useCallback(async () => {
     setCaricamentoTipo(true)
     setErrore(null)
     try {
       const qStoricoCompleto = query(collection(db, 'storico'), where('tipo', '==', tipoAttivo))
-      const qRimossi = query(
-        collection(db, 'boulder'),
-        where('tipo', '==', tipoAttivo),
-        where('stato', '==', 'rimossa')
-      )
-      const [snapStorico, snapRimossi] = await Promise.all([getDocs(qStoricoCompleto), getDocs(qRimossi)])
+      const snapStorico = await getDocs(qStoricoCompleto)
       setEventiCompletiRaw(snapStorico.docs.map((d) => d.data()))
-      setRimossi(snapRimossi.docs.map((d) => d.data()))
     } catch (e) {
       setErrore('Connessione assente, riprova.')
       console.error(e)
@@ -296,29 +299,23 @@ export default function Statistiche({ tracciatoreLoggato }) {
 
   // Durata media (giorni) di un blocco prima della rimozione: su tutti i
   // boulder rimossi (stato: 'rimossa'), inclusi quelli già in sotto-cestino
-  // (entrambi hanno creatoIl/rimossoIl) — un'unica query per entrambi i casi.
-  const durataMedia = useMemo(() => {
-    const conDurata = rimossi
-      .map((b) => ({ settore: b.settore, giorni: giorniTra(b.creatoIl, b.rimossoIl) }))
-      .filter((r) => r.giorni !== null && r.giorni >= 0)
+  // (entrambi hanno creatoIl/rimossoIl). Calcolata per tipo (boulder/corda)
+  // indipendentemente dal toggle Boulder/Corda della pagina, così la card
+  // mostra sempre entrambi i valori.
+  const mediaGiorniPerTipo = useCallback(
+    (tipo) => {
+      const giorni = rimossiTutti
+        .filter((b) => b.tipo === tipo)
+        .map((b) => giorniTra(b.creatoIl, b.rimossoIl))
+        .filter((g) => g !== null && g >= 0)
+      if (giorni.length === 0) return null
+      return giorni.reduce((s, g) => s + g, 0) / giorni.length
+    },
+    [rimossiTutti]
+  )
 
-    if (conDurata.length === 0) return { media: null, perSettore: [] }
-
-    const media = conDurata.reduce((s, r) => s + r.giorni, 0) / conDurata.length
-
-    const perSettoreMap = {}
-    conDurata.forEach((r) => {
-      if (!perSettoreMap[r.settore]) perSettoreMap[r.settore] = { settore: r.settore, somma: 0, conteggio: 0 }
-      perSettoreMap[r.settore].somma += r.giorni
-      perSettoreMap[r.settore].conteggio++
-    })
-    const perSettore = Object.values(perSettoreMap)
-      .map((s) => ({ settore: s.settore, media: s.somma / s.conteggio }))
-      .sort((a, b) => b.media - a.media)
-      .slice(0, 5)
-
-    return { media, perSettore }
-  }, [rimossi])
+  const durataMediaBoulder = useMemo(() => mediaGiorniPerTipo('boulder'), [mediaGiorniPerTipo])
+  const durataMediaCorda = useMemo(() => mediaGiorniPerTipo('corda'), [mediaGiorniPerTipo])
 
   return (
     <div className="max-w-2xl mx-auto p-4 pb-24">
@@ -435,28 +432,23 @@ export default function Statistiche({ tracciatoreLoggato }) {
             </ResponsiveContainer>
           </section>
 
-          {/* Durata media di un blocco prima della rimozione */}
+          {/* Durata media di un blocco prima della rimozione, per tipo */}
           <section className="bg-white border border-gray-200 rounded-2xl p-4">
             <h2 className="font-bold text-navy text-sm mb-3">Durata media prima della rimozione</h2>
-            {durataMedia.media === null ? (
-              <p className="text-center text-gray-400 text-sm py-6">Nessun dato disponibile.</p>
-            ) : (
-              <>
-                <p className="text-2xl font-bold text-navy mb-3">
-                  {Math.round(durataMedia.media * 10) / 10} <span className="text-sm font-normal text-gray-400">giorni in media</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-navy">
+                  {durataMediaBoulder === null ? '—' : Math.round(durataMediaBoulder * 10) / 10}
                 </p>
-                {durataMedia.perSettore.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    {durataMedia.perSettore.map((s) => (
-                      <div key={s.settore} className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600 truncate">{s.settore}</span>
-                        <span className="font-medium text-navy shrink-0 ml-2">{Math.round(s.media * 10) / 10} gg</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+                <p className="text-xs text-gray-400 mt-1">Boulder (giorni)</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-navy">
+                  {durataMediaCorda === null ? '—' : Math.round(durataMediaCorda * 10) / 10}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Vie (giorni)</p>
+              </div>
+            </div>
           </section>
 
           {/* Classifica tracciatori */}
