@@ -59,8 +59,7 @@ export default function InstallPromptCard({ top = 'top-2' }) {
         <img
           src="./icon-192.png"
           alt=""
-          className="w-11 h-11 rounded-xl shrink-0"
-          style={{ background: '#0c1445' }}
+          className="w-11 h-11 rounded-xl shrink-0 bg-navy"
         />
         <div className="flex-1 min-w-0">
           <p className="font-barlow font-semibold text-navy text-base leading-tight">
