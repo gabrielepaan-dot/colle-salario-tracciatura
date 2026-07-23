@@ -2,6 +2,7 @@ import { COLORI_GRADO } from '../lib/colori'
 
 const DIMENSIONI = {
   sm: 16,
+  tabella: 20,
   md: 24,
 }
 

@@ -402,7 +402,7 @@ export default function BoulderForm({
                               </span>
                             </td>
                             <td className="px-2 py-2 align-top">
-                              <div className="flex flex-wrap gap-0.5 max-w-[8rem]">
+                              <div className="grid grid-cols-4 gap-1">
                                 {LISTA_COLORI_GRADO.map((g) => (
                                   <button
                                     key={g}
@@ -415,7 +415,7 @@ export default function BoulderForm({
                                     }`}
                                     title={g}
                                   >
-                                    <GradoStar coloreGrado={g} size="sm" />
+                                    <GradoStar coloreGrado={g} size="tabella" />
                                   </button>
                                 ))}
                               </div>
