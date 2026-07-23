@@ -1,4 +1,4 @@
-import { doc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 
 // Unico percorso di rimozione: sempre soft-delete (stato: 'rimossa'). Il
