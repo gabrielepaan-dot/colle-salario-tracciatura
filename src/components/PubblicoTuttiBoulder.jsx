@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { usePubblicoSnapshot } from '../lib/pubblicoSnapshot'
-import { ORDINE_GRADI } from '../lib/colori'
+import { ORDINE_GRADI, nomeGrado } from '../lib/colori'
 import BoulderRow from './BoulderRow'
 
 // Equivalente pubblico/sola-lettura di TuttiBoulder.jsx: stessa struttura
@@ -108,12 +108,12 @@ export default function PubblicoTuttiBoulder() {
           <select
             value={gradoFiltro}
             onChange={(e) => selezionaGrado(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white capitalize"
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
           >
             <option value="">Tutti</option>
             {ORDINE_GRADI.map((g) => (
-              <option key={g} value={g} className="capitalize">
-                {g}
+              <option key={g} value={g}>
+                {nomeGrado(g)}
               </option>
             ))}
           </select>

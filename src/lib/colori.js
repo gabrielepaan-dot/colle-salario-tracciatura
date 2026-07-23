@@ -91,6 +91,14 @@ export function nomeColorePrese(colorePrese) {
   return COLORI_SPECIALI[colorePrese]?.nome || colorePrese
 }
 
+// Nome leggibile per un coloreGrado (es. "bianco" -> "Bianco"): capitalizza
+// il testo vero in JS invece di affidarsi alla classe CSS "capitalize", che
+// su <select>/<option> è supportata in modo incoerente tra browser (in
+// particolare la casella chiusa spesso ignora il text-transform).
+export function nomeGrado(coloreGrado) {
+  return coloreGrado.charAt(0).toUpperCase() + coloreGrado.slice(1)
+}
+
 // Hex singolo rappresentativo di un colorePrese (anche speciale), usato dove
 // serve per forza un unico colore solido — es. una tinta `${hex}22` di sfondo
 // riga — e non un gradiente (i bicolore restituiscono la prima metà).
