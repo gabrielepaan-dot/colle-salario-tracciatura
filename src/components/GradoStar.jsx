@@ -17,7 +17,7 @@ const STELLA_PATH =
 // due implementazioni parallele dello stesso indicatore.
 export default function GradoStar({ coloreGrado, size = 'md' }) {
   const impostato = !!coloreGrado && COLORI_GRADO[coloreGrado] !== undefined
-  const colore = impostato ? COLORI_GRADO[coloreGrado] : '#111111'
+  const colore = impostato ? COLORI_GRADO[coloreGrado] : COLORI_GRADO.nero
   const px = DIMENSIONI[size] || DIMENSIONI.md
 
   return (
@@ -27,7 +27,7 @@ export default function GradoStar({ coloreGrado, size = 'md' }) {
       {impostato ? (
         <path d={STELLA_PATH} fill={colore} stroke="black" strokeWidth="1" strokeLinejoin="round" />
       ) : (
-        <text x="12" y="16.5" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111111">
+        <text x="12" y="16.5" textAnchor="middle" fontSize="11" fontWeight="bold" fill={COLORI_GRADO.nero}>
           ?
         </text>
       )}
