@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { sha256Hex } from './hash'
 
