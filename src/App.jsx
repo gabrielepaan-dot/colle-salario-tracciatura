@@ -15,6 +15,7 @@ import BottomNav from './components/BottomNav'
 import BottomNavPubblico from './components/BottomNavPubblico'
 import PubblicoTuttiBoulder from './components/PubblicoTuttiBoulder'
 import PubblicoSettoreDetail from './components/PubblicoSettoreDetail'
+import InstallPromptCard from './components/InstallPromptCard'
 
 // Indicatore di staleness della Vista pubblica: mostra l'orario locale in cui
 // lo snapshot statico è stato generato (campo generatoIl, aggiornato ogni
@@ -71,6 +72,7 @@ function AppShell() {
           </span>
           <AggiornatoAlleBadge />
         </div>
+        <InstallPromptCard top="top-14" />
         <BottomNavPubblico vista={vistaPubblico} onCambiaVista={cambiaVistaPubblico} />
         <Routes>
           <Route
@@ -113,6 +115,7 @@ function AppShell() {
 
   return (
     <div className="sm:pl-48">
+      <InstallPromptCard />
       <BottomNav vista={vista} onCambiaVista={cambiaVista} />
 
       <Routes>
