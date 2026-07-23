@@ -65,9 +65,9 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
       <header className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 min-w-0">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(`/${tipoDiSettore(settore)}`)}
             className="text-navy text-xl leading-none shrink-0"
-            aria-label="Torna alla Home"
+            aria-label="Torna alla griglia settori"
           >
             ←
           </button>

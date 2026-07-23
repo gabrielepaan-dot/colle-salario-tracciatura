@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePubblicoSnapshot } from '../lib/pubblicoSnapshot'
+import { tipoDiSettore } from '../lib/colori'
 import BoulderRow from './BoulderRow'
 
 // Equivalente pubblico/sola-lettura di SettoreDetail.jsx: stessa struttura
@@ -29,9 +30,9 @@ export default function PubblicoSettoreDetail() {
     <div className="max-w-2xl mx-auto p-4 pb-24">
       <header className="flex items-center gap-2 mb-4">
         <button
-          onClick={() => navigate('/pubblico')}
+          onClick={() => navigate(`/pubblico/${tipoDiSettore(settore)}`)}
           className="text-navy text-xl leading-none shrink-0"
-          aria-label="Torna alla Home"
+          aria-label="Torna alla griglia settori"
         >
           ←
         </button>
