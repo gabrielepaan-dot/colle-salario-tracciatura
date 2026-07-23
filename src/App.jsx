@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
 import { usePubblicoSnapshot } from './lib/pubblicoSnapshot'
@@ -7,7 +7,6 @@ import HomeSelezione from './components/HomeSelezione'
 import GrigliaSettori from './components/GrigliaSettori'
 import SettoreDetail from './components/SettoreDetail'
 import TuttiBoulder from './components/TuttiBoulder'
-import Statistiche from './components/Statistiche'
 import Profilo from './components/Profilo'
 import Cestino from './components/Cestino'
 import SottoCestino from './components/SottoCestino'
@@ -16,6 +15,19 @@ import BottomNavPubblico from './components/BottomNavPubblico'
 import PubblicoTuttiBoulder from './components/PubblicoTuttiBoulder'
 import PubblicoSettoreDetail from './components/PubblicoSettoreDetail'
 import InstallPromptCard from './components/InstallPromptCard'
+
+// Caricata solo dietro un click sulla tab "Statistiche": è l'unica
+// consumatrice di recharts, di gran lunga la dipendenza più pesante del
+// bundle (vedi PROJECT_STATE.md). Separarla riduce il peso del
+// caricamento iniziale per tutti gli altri percorsi.
+const Statistiche = lazy(() => import('./components/Statistiche'))
+
+// Fallback minimo: stesso pattern già usato per lo stato "loading" di
+// useAuth qui sotto, sfondo identico al body (bg-gray-50) per non produrre
+// alcun flash visibile.
+function FallbackVuoto() {
+  return <div className="min-h-screen bg-gray-50" />
+}
 
 // Indicatore di staleness della Vista pubblica: mostra l'orario locale in cui
 // lo snapshot statico è stato generato (campo generatoIl, aggiornato ogni
@@ -125,7 +137,11 @@ function AppShell() {
             <>
               {vista === 'home' && <HomeSelezione />}
               {vista === 'filtri' && <TuttiBoulder tracciatoreLoggato={tracciatore} />}
-              {vista === 'statistiche' && <Statistiche tracciatoreLoggato={tracciatore} />}
+              {vista === 'statistiche' && (
+                <Suspense fallback={<FallbackVuoto />}>
+                  <Statistiche tracciatoreLoggato={tracciatore} />
+                </Suspense>
+              )}
               {vista === 'profilo' && (
                 <Profilo tracciatoreLoggato={tracciatore} onLogout={logout} />
               )}
