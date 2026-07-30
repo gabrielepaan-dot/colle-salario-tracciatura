@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Base relativa: l'app viene pubblicata sia su GitHub Pages (sotto un
-// sottopercorso, /colle-salario-tracciatura/) sia su Firebase Hosting (alla
-// radice del dominio, es. climbing-free.web.app/). Con base relativo lo
-// stesso build funziona identico su entrambi.
+// Base relativa: storicamente serviva per funzionare sia su GitHub Pages
+// (sottopercorso) sia su Firebase Hosting (radice) — GitHub Pages dismesso
+// dal 2026-07-30, ma la base relativa resta corretta anche a radice
+// singola, nessun motivo per cambiarla.
 export default defineConfig({
   plugins: [react()],
   base: './',

@@ -40,7 +40,9 @@
 7. **Registra una Web App e copia la configurazione**
    - Project Settings (icona ingranaggio) > General > "Your apps" → icona `</>` (Web)
    - Nickname app: qualsiasi, es. `tracciatura-web`
-   - **NON** serve Firebase Hosting (usiamo GitHub Pages)
+   - Serve anche un sito Firebase Hosting aggiuntivo (nome `climbing-free`
+     in questo progetto) — unico target di deploy, GitHub Pages non è più
+     usato (dismesso il 2026-07-30)
    - Copia i valori mostrati in `firebaseConfig`
 
 8. **Configura le variabili d'ambiente**
@@ -51,8 +53,13 @@
    - Repo > Settings > Secrets and variables > Actions
    - Aggiungi gli stessi 6 secrets elencati in `.env.example` (stessi nomi, stessi valori)
 
-10. **Abilita GitHub Pages**
-    - Repo > Settings > Pages > Source: "GitHub Actions"
+10. **Configura il service account per Firebase Hosting**
+    - Firebase Console → Project Settings → Service accounts → crea un
+      service account dedicato con solo ruolo IAM "Firebase Hosting Admin"
+      → "Generate new private key"
+    - Salva il contenuto del file JSON scaricato come GitHub Secret
+      `FIREBASE_HOSTING_DEPLOY_KEY` (Repo > Settings > Secrets and
+      variables > Actions)
 
 11. **Primo push**
     ```bash
