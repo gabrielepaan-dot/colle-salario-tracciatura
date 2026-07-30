@@ -20,19 +20,9 @@
 import { initializeApp, applicationDefault } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { writeFileSync } from 'node:fs'
-
-const credentialPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
-if (!credentialPath) {
-  console.error(
-    'Manca GOOGLE_APPLICATION_CREDENTIALS: imposta il percorso del file service account key (vedi commento in testa a questo script).'
-  )
-  process.exit(1)
-}
+import { devePubblicare } from './lib/finestraPubblicazione.mjs'
 
 const percorsoOutput = process.argv[2] || './public-snapshot.json'
-
-const app = initializeApp({ credential: applicationDefault() })
-const db = getFirestore(app)
 
 // Solo i campi utili al pubblico: esclusi id documento, tracciatoreId, note,
 // stato, creatoIl, rimossoDa/rimossoIl (nessun campo gestionale/interno).
@@ -49,6 +39,28 @@ function campiPubblici(doc) {
 }
 
 async function main() {
+  // Controllo di fascia oraria PRIMA di toccare credenziali/Firestore: la
+  // maggior parte delle invocazioni del cron (che triggera più spesso del
+  // necessario) deve limitarsi a questo controllo economico ed uscire,
+  // senza consumare quota di lettura Firestore. Vedi lib/finestraPubblicazione.mjs.
+  const decisione = await devePubblicare()
+  if (!decisione.pubblica) {
+    console.log(`Nessuna pubblicazione: ${decisione.motivo}.`)
+    return
+  }
+  console.log(`Pubblico nuovo snapshot: ${decisione.motivo}.`)
+
+  const credentialPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
+  if (!credentialPath) {
+    console.error(
+      'Manca GOOGLE_APPLICATION_CREDENTIALS: imposta il percorso del file service account key (vedi commento in testa a questo script).'
+    )
+    process.exit(1)
+  }
+
+  const app = initializeApp({ credential: applicationDefault() })
+  const db = getFirestore(app)
+
   const snap = await db.collection('boulder').where('stato', '==', 'attiva').get()
   const boulder = snap.docs.map((d) => campiPubblici(d.data()))
 

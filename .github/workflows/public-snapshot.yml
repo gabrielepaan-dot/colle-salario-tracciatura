@@ -2,7 +2,13 @@ name: Genera snapshot pubblico
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # Ogni 30 min, 07:00-22:30 UTC: finestra larga con margine per coprire
+    # la fascia 11:00-22:30 ora locale di Roma sia in CET (UTC+1) sia in
+    # CEST (UTC+2). Il cron gira solo in UTC e non è DST-aware, quindi
+    # questa è solo una finestra "abbastanza larga" — la decisione precisa
+    # su quando pubblicare davvero (fasce orarie, throttling) vive in
+    # scripts/lib/finestraPubblicazione.mjs, non qui.
+    - cron: '*/30 7-22 * * *'
   workflow_dispatch:
 
 permissions:
@@ -45,6 +51,11 @@ jobs:
       # attiva solo su push a main) e non serve mai un "npm run build".
       - name: Pubblica su branch public-data
         run: |
+          if [ ! -f /tmp/public-snapshot.json ]; then
+            echo "Fuori dalla finestra di pubblicazione per questo run, nulla da pubblicare."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
