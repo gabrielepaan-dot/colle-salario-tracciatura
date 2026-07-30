@@ -1,43 +1,42 @@
 // Backup giornaliero di boulder, storico e tracciatori in un unico JSON.
-// Usa il client SDK in sola lettura (nessun Admin SDK, nessuna scrittura):
-// le tre collezioni hanno già `allow read: if true` in firestore.rules
-// (vedi generate-public-snapshot.mjs, stesso pattern), quindi bastano le
-// env var VITE_FIREBASE_* già pubbliche per design.
+//
+// Usa l'Admin SDK (firebase-admin), non il client SDK: con Firebase App
+// Check in modalità enforcement, le letture del client SDK richiedono un
+// token App Check valido, che questo script (eseguito headless in CI, senza
+// browser/reCAPTCHA) non può fornire — verrebbero bloccate. Stesso motivo e
+// stesso pattern già applicati a generate-public-snapshot.mjs.
 //
 // A differenza dello snapshot pubblico, qui l'export è COMPLETO: tutti i
 // documenti (non solo stato: 'attiva') e tutti i campi, incluso l'id, per
 // poter davvero ripristinare i dati in caso di necessità.
 //
+// Richiede GOOGLE_APPLICATION_CREDENTIALS (percorso a un file service
+// account key), stesso meccanismo di set-shared-password.mjs /
+// generate-public-snapshot.mjs.
+//
 // Uso:
-//   node scripts/backup-firestore.mjs [percorso-output.json]
+//   GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json \
+//     node scripts/backup-firestore.mjs [percorso-output.json]
 //   (default: ./backup.json)
-import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, getDocs } from 'firebase/firestore'
-import { writeFileSync, existsSync } from 'node:fs'
+import { initializeApp, applicationDefault } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
+import { writeFileSync } from 'node:fs'
 
-if (existsSync('.env')) process.loadEnvFile('.env')
-
-const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
-}
-
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error('Config Firebase mancante: manca il file .env con le chiavi VITE_FIREBASE_*.')
+const credentialPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
+if (!credentialPath) {
+  console.error(
+    'Manca GOOGLE_APPLICATION_CREDENTIALS: imposta il percorso del file service account key (vedi commento in testa a questo script).'
+  )
   process.exit(1)
 }
 
 const percorsoOutput = process.argv[2] || './backup.json'
 
-const app = initializeApp(firebaseConfig)
+const app = initializeApp({ credential: applicationDefault() })
 const db = getFirestore(app)
 
 async function esportaCollezione(nome) {
-  const snap = await getDocs(collection(db, nome))
+  const snap = await db.collection(nome).get()
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
@@ -61,7 +60,9 @@ async function main() {
   )
 }
 
-main().catch((e) => {
-  console.error('Errore durante il backup:', e)
-  process.exit(1)
-})
+main()
+  .catch((e) => {
+    console.error('Errore durante il backup:', e)
+    process.exit(1)
+  })
+  .finally(() => process.exit(0))
