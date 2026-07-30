@@ -1,40 +1,37 @@
 // Genera lo snapshot JSON pubblico letto dalla Vista pubblica (#/pubblico),
 // servito staticamente dal branch orfano "public-data" (mai da "main").
-// Usa il client SDK (non firebase-admin): boulder/tracciatori hanno già
-// `allow read: if true` in firestore.rules, quindi non serve alcuna
-// credenziale privilegiata, solo le stesse env var VITE_FIREBASE_* già
-// pubbliche per design (vedi src/lib/firebase.js).
+//
+// Usa l'Admin SDK (firebase-admin), non il client SDK: con Firebase App
+// Check in modalità enforcement, le letture del client SDK richiedono un
+// token App Check valido, che questo script (eseguito headless in CI, senza
+// browser/reCAPTCHA) non può fornire — verrebbero bloccate. L'Admin SDK
+// bypassa App Check nativamente, esattamente come già bypassa le Security
+// Rules in set-shared-password.mjs.
+//
+// Richiede GOOGLE_APPLICATION_CREDENTIALS (percorso a un file service
+// account key), stesso meccanismo di set-shared-password.mjs. In CI
+// (workflow public-snapshot.yml) il file viene scritto da un secret
+// prima di eseguire questo script.
 //
 // Uso:
-//   node scripts/generate-public-snapshot.mjs [percorso-output.json]
+//   GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json \
+//     node scripts/generate-public-snapshot.mjs [percorso-output.json]
 //   (default: ./public-snapshot.json)
-import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, getDocs, query, where } from 'firebase/firestore'
-import { writeFileSync, existsSync } from 'node:fs'
+import { initializeApp, applicationDefault } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
+import { writeFileSync } from 'node:fs'
 
-// In locale le VITE_FIREBASE_* vengono dal file .env; in CI (workflow
-// public-snapshot.yml) sono già nell'ambiente via GitHub Secrets e il file
-// .env non esiste (è in .gitignore) — caricarlo incondizionatamente farebbe
-// crashare lo script lì con ENOENT.
-if (existsSync('.env')) process.loadEnvFile('.env')
-
-const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
-}
-
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error('Config Firebase mancante: manca il file .env con le chiavi VITE_FIREBASE_*.')
+const credentialPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
+if (!credentialPath) {
+  console.error(
+    'Manca GOOGLE_APPLICATION_CREDENTIALS: imposta il percorso del file service account key (vedi commento in testa a questo script).'
+  )
   process.exit(1)
 }
 
 const percorsoOutput = process.argv[2] || './public-snapshot.json'
 
-const app = initializeApp(firebaseConfig)
+const app = initializeApp({ credential: applicationDefault() })
 const db = getFirestore(app)
 
 // Solo i campi utili al pubblico: esclusi id documento, tracciatoreId, note,
@@ -52,8 +49,7 @@ function campiPubblici(doc) {
 }
 
 async function main() {
-  const q = query(collection(db, 'boulder'), where('stato', '==', 'attiva'))
-  const snap = await getDocs(q)
+  const snap = await db.collection('boulder').where('stato', '==', 'attiva').get()
   const boulder = snap.docs.map((d) => campiPubblici(d.data()))
 
   const output = {
@@ -65,7 +61,9 @@ async function main() {
   console.log(`Scritto ${percorsoOutput}: ${boulder.length} boulder/vie attivi.`)
 }
 
-main().catch((e) => {
-  console.error('Errore durante la generazione dello snapshot pubblico:', e)
-  process.exit(1)
-})
+main()
+  .catch((e) => {
+    console.error('Errore durante la generazione dello snapshot pubblico:', e)
+    process.exit(1)
+  })
+  .finally(() => process.exit(0))

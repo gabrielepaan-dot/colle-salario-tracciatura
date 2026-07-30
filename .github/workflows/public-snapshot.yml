@@ -30,15 +30,15 @@ jobs:
       - name: Installa dipendenze
         run: npm ci
 
+      - name: Scrivi credenziali Admin SDK temporanee
+        run: echo "$FIREBASE_ADMIN_KEY" > "$RUNNER_TEMP/firebase-admin-key.json"
+        env:
+          FIREBASE_ADMIN_KEY: ${{ secrets.FIREBASE_SNAPSHOT_ADMIN_KEY }}
+
       - name: Genera public-snapshot.json
         run: node scripts/generate-public-snapshot.mjs /tmp/public-snapshot.json
         env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-admin-key.json
 
       # Pubblica il JSON su un branch orfano dedicato ("public-data"), MAI su
       # main: così questo workflow non fa mai scattare deploy.yml (che si
