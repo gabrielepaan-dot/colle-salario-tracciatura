@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '../lib/firebase'
+import { dataEffettiva } from '../lib/date'
 import {
   LISTA_SETTORI,
   LISTA_SETTORI_CORDA,
@@ -164,6 +165,14 @@ export default function BoulderForm({
     try {
       const batch = writeBatch(db)
 
+      // Pre-apertura stagione (1 settembre 2026): le vie permanenti
+      // (toggle "Fissa") restano sempre sulla data reale, tutte le altre
+      // creazioni/modifiche "nascono" il giorno di apertura finché non si
+      // arriva davvero a quella data — vedi dataEffettiva() in lib/date.js.
+      const effettiva = dataEffettiva()
+      const creatoIlDaSalvare = permanente ? serverTimestamp() : effettiva.timestamp
+      const dataDaSalvare = !permanente && effettiva.preApertura ? effettiva.dataISO : dataEvento
+
       if (mode === 'create') {
         // Un boulder + un evento storico per ciascun colore selezionato:
         // ogni evento storico rappresenta una creazione reale, quindi la
@@ -187,12 +196,12 @@ export default function BoulderForm({
             note: note || null,
             tracciatoreId: rigaTracciatoreId,
             tracciatoreNome: rigaTracciatoreNome,
-            dataUltimoCambio: dataEvento,
+            dataUltimoCambio: dataDaSalvare,
             permanente,
           }
 
           const boulderRef = doc(collection(db, 'boulder'))
-          batch.set(boulderRef, { ...snapshot, creatoIl: serverTimestamp() })
+          batch.set(boulderRef, { ...snapshot, creatoIl: creatoIlDaSalvare })
 
           const storicoRef = doc(collection(db, 'storico'))
           batch.set(storicoRef, {
@@ -203,12 +212,12 @@ export default function BoulderForm({
             tracciatoreNome: rigaTracciatoreNome,
             eseguitoDaUid: auth.currentUser?.uid || null,
             eseguitoDaNome: tracciatoreLoggato?.nome || null,
-            dataEvento,
+            dataEvento: dataDaSalvare,
             colorePrese: colore,
             coloreGrado: riga.coloreGrado || '',
             stato,
             note: note || null,
-            creatoIl: serverTimestamp(),
+            creatoIl: creatoIlDaSalvare,
           })
         })
       } else {
@@ -224,7 +233,7 @@ export default function BoulderForm({
           tracciatoreId === TRACCIATORE_ALTRI
             ? 'Altri'
             : tracciatoriPerSelezione.find((t) => t.id === tracciatoreId)?.nome || ''
-        const eIlPiuRecente = dataEvento >= (boulderEsistente.dataUltimoCambio || '')
+        const eIlPiuRecente = dataDaSalvare >= (boulderEsistente.dataUltimoCambio || '')
         if (eIlPiuRecente) {
           const boulderRef = doc(db, 'boulder', boulderEsistente.id)
           batch.update(boulderRef, {
@@ -236,7 +245,7 @@ export default function BoulderForm({
             note: note || null,
             tracciatoreId: tracciatoreIdDaSalvare,
             tracciatoreNome,
-            dataUltimoCambio: dataEvento,
+            dataUltimoCambio: dataDaSalvare,
           })
         }
       }

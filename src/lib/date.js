@@ -1,3 +1,10 @@
+import { Timestamp, serverTimestamp } from 'firebase/firestore'
+
+// Apertura ufficiale al pubblico: prima di questa data i blocchi tracciati
+// (durante il pre-stagione di agosto 2026) non devono invecchiare dalla loro
+// data reale — vedi dataEffettiva() sotto.
+const DATA_APERTURA_STAGIONE = '2026-09-01'
+
 // Variante compatta (senza anno), usata nelle mini-tabelle stile Excel di
 // Dettaglio settore e della vista Filtri, dove lo spazio orizzontale è
 // limitato.
@@ -34,6 +41,30 @@ export function giorniTra(inizio, fine) {
   const fineDate = fine?.toDate ? fine.toDate() : fine ? new Date(fine) : null
   if (!inizioDate || !fineDate) return null
   return Math.round((fineDate.getTime() - inizioDate.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+// Calcola la "data effettiva" da usare per creatoIl/dataUltimoCambio
+// (boulder) e creatoIl/dataEvento (storico) al momento del salvataggio.
+// Finché la data odierna (fuso Europe/Rome, DST-aware) precede l'apertura
+// ufficiale, un blocco tracciato oggi deve comunque risultare "nato" il 1
+// settembre 2026 — qualunque data l'utente abbia scelto nel selettore del
+// form — così non inizia ad invecchiare (Cestino, durata media, andamento
+// in Statistiche) prima dell'apertura vera. Dopo l'apertura il meccanismo si
+// autodisattiva: preApertura torna false e il chiamante torna a usare la
+// data scelta dall'utente come sempre. Timestamp e dataISO sono calcolati
+// insieme per non avere due sorgenti di verità sulla stessa decisione.
+// Il parametro opzionale "ora" permette di testare la funzione passando
+// date finte, senza dipendere dall'orologio reale del sistema.
+export function dataEffettiva(ora = new Date()) {
+  const oggi = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(ora)
+  const preApertura = oggi < DATA_APERTURA_STAGIONE
+  return {
+    preApertura,
+    timestamp: preApertura
+      ? Timestamp.fromDate(new Date(`${DATA_APERTURA_STAGIONE}T00:00:00Z`))
+      : serverTimestamp(),
+    dataISO: preApertura ? DATA_APERTURA_STAGIONE : oggi,
+  }
 }
 
 // "3gg fa" invece di "3 giorni fa", per la stessa mini-tabella densa.
