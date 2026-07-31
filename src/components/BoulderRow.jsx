@@ -59,6 +59,7 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
       <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-14">
         {nomeColorePrese(colorePrese)}
         {boulder.old && <span className="font-normal normal-case"> · old</span>}
+        {boulder.permanente && <span className="font-normal normal-case"> · fissa</span>}
       </span>
 
       <span className="flex items-center gap-1.5 shrink min-w-12 w-[6.5rem]">

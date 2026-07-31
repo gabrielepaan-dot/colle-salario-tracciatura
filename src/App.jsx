@@ -10,6 +10,7 @@ import TuttiBoulder from './components/TuttiBoulder'
 import Profilo from './components/Profilo'
 import Cestino from './components/Cestino'
 import SottoCestino from './components/SottoCestino'
+import VieFisse from './components/VieFisse'
 import BottomNav from './components/BottomNav'
 import BottomNavPubblico from './components/BottomNavPubblico'
 import PubblicoTuttiBoulder from './components/PubblicoTuttiBoulder'
@@ -153,6 +154,7 @@ function AppShell() {
         <Route path="/settore/:slug" element={<SettoreDetail tracciatoreLoggato={tracciatore} />} />
         <Route path="/cestino" element={<Cestino tracciatoreLoggato={tracciatore} />} />
         <Route path="/recupero-admin" element={<SottoCestino tracciatoreLoggato={tracciatore} />} />
+        <Route path="/vie-fisse" element={<VieFisse tracciatoreLoggato={tracciatore} />} />
       </Routes>
     </div>
   )

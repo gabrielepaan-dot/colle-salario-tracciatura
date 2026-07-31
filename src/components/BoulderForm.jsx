@@ -44,6 +44,7 @@ export default function BoulderForm({
   tipo,
   tracciatoreLoggato,
   tracciatori,
+  permanenteDefault,
   onClose,
   onSalvato,
 }) {
@@ -62,6 +63,15 @@ export default function BoulderForm({
   })
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState(null)
+
+  // Toggle visibile SOLO quando il form viene aperto dalla sezione admin
+  // "Vie fisse" (permanenteDefault passato): nei flussi normali di
+  // creazione/modifica resta invisibile, nessun cambiamento per i
+  // tracciatori. Non modificabile in aggiornamento: una volta creata, una
+  // via fissa resta tale (nessuna UI per cambiarlo dopo).
+  const [permanenteToggle, setPermanenteToggle] = useState(!!permanenteDefault)
+  const mostraTogglePermanente = mode === 'create' && permanenteDefault !== undefined
+  const permanente = mode === 'create' ? permanenteToggle : !!boulderEsistente?.permanente
 
   // Solo in creazione: uno o più colori prese selezionati contemporaneamente,
   // ciascuno con grado/tracciatore indipendenti, per generare N boulder in
@@ -178,6 +188,7 @@ export default function BoulderForm({
             tracciatoreId: rigaTracciatoreId,
             tracciatoreNome: rigaTracciatoreNome,
             dataUltimoCambio: dataEvento,
+            permanente,
           }
 
           const boulderRef = doc(collection(db, 'boulder'))
@@ -543,6 +554,27 @@ export default function BoulderForm({
               }
             />
           </div>
+
+          {mostraTogglePermanente && (
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPermanenteToggle((v) => !v)}
+                className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
+                  permanenteToggle ? 'bg-navy' : 'bg-gray-300'
+                }`}
+                aria-label="Via permanente"
+                aria-pressed={permanenteToggle}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                    permanenteToggle ? 'translate-x-4' : ''
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-gray-600">Via fissa (permanente, non ruota)</span>
+            </div>
+          )}
 
           {errore && <p className="text-rosso text-sm">{errore}</p>}
         </div>

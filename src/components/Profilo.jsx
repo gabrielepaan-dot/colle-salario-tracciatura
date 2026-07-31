@@ -52,6 +52,15 @@ export default function Profilo({ tracciatoreLoggato, onApriLogin, onLogout }) {
             </button>
           )}
 
+          {tracciatoreLoggato.isAdmin && (
+            <button
+              onClick={() => navigate('/vie-fisse')}
+              className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center text-left"
+            >
+              <span className="font-medium text-gray-800">📌 Vie fisse</span>
+            </button>
+          )}
+
           {tracciatoreLoggato.isAdmin && <AdminPanel />}
         </div>
       )}

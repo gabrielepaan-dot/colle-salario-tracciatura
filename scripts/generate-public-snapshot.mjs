@@ -33,6 +33,7 @@ function campiPubblici(doc) {
     colorePrese: doc.colorePrese,
     coloreGrado: doc.coloreGrado || '',
     old: !!doc.old,
+    permanente: !!doc.permanente,
     tracciatoreNome: doc.tracciatoreNome || '',
     dataUltimoCambio: doc.dataUltimoCambio,
   }
