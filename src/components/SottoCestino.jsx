@@ -184,6 +184,7 @@ export default function SottoCestino({ tracciatoreLoggato }) {
                 <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
                   {nomeColorePrese(b.colorePrese)}
                   {b.old && <span className="font-normal normal-case"> · old</span>}
+                  {b.permanente && <span className="font-normal normal-case"> · fissa</span>}
                 </span>
 
                 <GradoStar coloreGrado={b.coloreGrado} size="md" />

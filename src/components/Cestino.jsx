@@ -26,6 +26,8 @@ export default function Cestino({ tracciatoreLoggato }) {
   const [azioneInCorso, setAzioneInCorso] = useState(null)
   const [confermaEliminazione, setConfermaEliminazione] = useState(null)
 
+  const isAdmin = !!tracciatoreLoggato?.isAdmin
+
   const carica = useCallback(async () => {
     setCaricamento(true)
     setErrore(null)
@@ -163,6 +165,7 @@ export default function Cestino({ tracciatoreLoggato }) {
                 <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-0">
                   {nomeColorePrese(b.colorePrese)}
                   {b.old && <span className="font-normal normal-case"> · old</span>}
+                  {b.permanente && <span className="font-normal normal-case"> · fissa</span>}
                 </span>
 
                 <GradoStar coloreGrado={b.coloreGrado} size="md" />
@@ -180,20 +183,24 @@ export default function Cestino({ tracciatoreLoggato }) {
                 </span>
 
                 <div className="flex flex-col gap-1 shrink-0">
-                  <button
-                    onClick={() => ripristina(b)}
-                    disabled={inCorso || !tracciatoreLoggato}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-navy disabled:opacity-40"
-                  >
-                    {inCorso ? '...' : 'Ripristina'}
-                  </button>
-                  <button
-                    onClick={() => setConfermaEliminazione(b)}
-                    disabled={inCorso || !tracciatoreLoggato}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-rosso disabled:opacity-40"
-                  >
-                    {inCorso ? '...' : 'Elimina'}
-                  </button>
+                  {(!b.permanente || isAdmin) && (
+                    <button
+                      onClick={() => ripristina(b)}
+                      disabled={inCorso || !tracciatoreLoggato}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-navy disabled:opacity-40"
+                    >
+                      {inCorso ? '...' : 'Ripristina'}
+                    </button>
+                  )}
+                  {(!b.permanente || isAdmin) && (
+                    <button
+                      onClick={() => setConfermaEliminazione(b)}
+                      disabled={inCorso || !tracciatoreLoggato}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-rosso disabled:opacity-40"
+                    >
+                      {inCorso ? '...' : 'Elimina'}
+                    </button>
+                  )}
                 </div>
               </div>
             )

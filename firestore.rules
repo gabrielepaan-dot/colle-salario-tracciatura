@@ -136,6 +136,20 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/tracciatori/$(request.resource.data.tracciatoreId));
     }
 
+    // Una via "fissa" (permanente: true, creata solo da admin via
+    // src/components/VieFisse.jsx) è protetta anche qui, non solo lato UI:
+    // un tracciatore normale può ancora correggerne grado/colore/
+    // tracciatore/note come un boulder qualunque, ma non può farle
+    // cambiare stato (rimozione o ripristino) né spostarla in/fuori dal
+    // sotto-cestino — quelle transizioni richiedono isAdmin(). Controlla
+    // sia il valore già salvato sia quello che la scrittura sta per
+    // salvare, per non lasciare una via di bypass a chi provasse a
+    // impostare permanente:true e rimuoverla nella stessa scrittura.
+    function eBloccoPermanente() {
+      return resource.data.get('permanente', false) == true
+        || request.resource.data.get('permanente', false) == true;
+    }
+
     // Boulder: lettura sempre pubblica. Scrittura solo dopo aver superato
     // il gate della password condivisa (passwordSbloccata()) — coerente
     // con "permessi liberi tra tracciatori loggati" del requisito
@@ -148,17 +162,30 @@ service cloud.firestore {
       // blocchi già nel sotto-cestino (inSottocestino: true, vedi
       // src/components/SottoCestino.jsx): una volta lì, solo un admin può
       // ancora toccarli (es. "Ripristina"), coerente col fatto che la
-      // pagina è visibile solo agli admin.
+      // pagina è visibile solo agli admin. Per le vie fisse (sopra) in più:
+      // stato e inSottocestino non possono cambiare senza isAdmin(), anche
+      // se non ancora nel sotto-cestino.
       allow update: if passwordSbloccata()
-        && (resource.data.get('inSottocestino', false) != true || isAdmin());
+        && (resource.data.get('inSottocestino', false) != true || isAdmin())
+        && (
+          !eBloccoPermanente()
+          || isAdmin()
+          || (
+            request.resource.data.stato == resource.data.stato
+            && request.resource.data.get('inSottocestino', false)
+                 == resource.data.get('inSottocestino', false)
+          )
+        );
       // Hard delete consentito solo su blocchi già passati dal Cestino
       // (stato: 'rimossa'). Se NON ancora nel sotto-cestino: la pulizia
       // automatica dei 7gg del Cestino normale (Cestino.jsx) resta aperta
       // a chiunque abbia superato il gate password. Una volta
       // inSottocestino: true: solo admin ("Elimina per sempre" manuale o
-      // pulizia 7gg del sotto-cestino, SottoCestino.jsx).
+      // pulizia 7gg del sotto-cestino, SottoCestino.jsx). Le vie fisse
+      // richiedono isAdmin() anche qui, a prescindere da inSottocestino.
       allow delete: if passwordSbloccata() && resource.data.stato == 'rimossa'
-        && (resource.data.get('inSottocestino', false) != true || isAdmin());
+        && (resource.data.get('inSottocestino', false) != true || isAdmin())
+        && (resource.data.get('permanente', false) != true || isAdmin());
     }
 
     // Storico: lettura pubblica, scrittura/correzione solo dopo il gate

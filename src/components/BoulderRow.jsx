@@ -19,7 +19,7 @@ const SFONDO_RIGA_OVERRIDE = {
 // arancioni leggono meglio con testo scuro pur essendo colori "di brand"
 // pieni). mostraSettore aggiunge la colonna Settore, necessaria solo nella
 // vista Filtri dove i boulder arrivano da pareti diverse.
-export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick, mostraCestino, onElimina }) {
+export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick, mostraCestino, onElimina, isAdmin }) {
   const { settore, colorePrese, coloreGrado, tracciatoreNome, dataUltimoCambio } = boulder
 
   const sfondoNormale = SFONDO_RIGA_OVERRIDE[colorePrese] || COLORI_PRESE[colorePrese] || '#374151'
@@ -78,7 +78,7 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
         </p>
       </span>
 
-      {mostraCestino && (
+      {mostraCestino && (!boulder.permanente || isAdmin) && (
         <button
           onClick={(e) => {
             e.stopPropagation()

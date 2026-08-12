@@ -134,6 +134,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
               onClick={() => setFormAperto({ mode: 'update', boulderEsistente: b })}
               mostraCestino={!!tracciatoreLoggato}
               onElimina={() => richiediEliminazione(b)}
+              isAdmin={!!tracciatoreLoggato?.isAdmin}
             />
           ))}
         </div>
