@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDocs, query, where, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '../lib/firebase'
 import { dataEffettiva } from '../lib/date'
 import {
@@ -221,18 +221,24 @@ export default function BoulderForm({
           })
         })
       } else {
-        // Una modifica non è una nuova creazione: tocca solo il documento
-        // boulder (mai storico), altrimenti ogni correzione di grado/note
-        // duplicherebbe il conteggio nella classifica tracciatori.
-        // Se la data inserita è precedente all'ultimo cambio registrato
-        // (correzione/inserimento retroattivo), non sovrascriviamo lo stato
-        // "corrente" mostrato in Home, per non far "tornare indietro" la
-        // card rispetto a un evento già più recente.
+        // Una modifica non crea un nuovo evento storico (altrimenti ogni
+        // correzione duplicherebbe il conteggio nella classifica): aggiorna
+        // il documento boulder E allinea l'evento di creazione già in
+        // `storico`, così le statistiche basate sullo storico (classifica
+        // per grado, grado medio, settore preferito) riflettono subito le
+        // correzioni fatte dopo la creazione — es. il grado aggiunto solo
+        // in un secondo momento, o il tracciatore riassegnato.
         const tracciatoreIdDaSalvare = tracciatoreId === TRACCIATORE_ALTRI ? null : tracciatoreId
         const tracciatoreNome =
           tracciatoreId === TRACCIATORE_ALTRI
             ? 'Altri'
             : tracciatoriPerSelezione.find((t) => t.id === tracciatoreId)?.nome || ''
+
+        // Se la data inserita è precedente all'ultimo cambio registrato
+        // (correzione/inserimento retroattivo), non sovrascriviamo lo stato
+        // "corrente" mostrato in Home, per non far "tornare indietro" la
+        // card rispetto a un evento già più recente. La correzione dello
+        // storico invece va applicata comunque.
         const eIlPiuRecente = dataDaSalvare >= (boulderEsistente.dataUltimoCambio || '')
         if (eIlPiuRecente) {
           const boulderRef = doc(db, 'boulder', boulderEsistente.id)
@@ -246,6 +252,34 @@ export default function BoulderForm({
             tracciatoreId: tracciatoreIdDaSalvare,
             tracciatoreNome,
             dataUltimoCambio: dataDaSalvare,
+          })
+        }
+
+        // Allinea l'evento di creazione in storico (il più vecchio, nel
+        // raro caso ce ne sia più d'uno per lo stesso blocco). Non tocca
+        // `dataEvento`: il blocco resta nell'andamento nel periodo in cui è
+        // stato tracciato, non in cui è stato corretto. Un blocco legacy
+        // senza storico non ha nulla da allineare. `eseguitoDaUid` viene
+        // riscritto con chi fa la correzione (richiesto dalle Rules).
+        const snapStorico = await getDocs(
+          query(collection(db, 'storico'), where('boulderId', '==', boulderEsistente.id))
+        )
+        if (!snapStorico.empty) {
+          const docCreazione = snapStorico.docs.reduce((piuVecchio, d) => {
+            if (!piuVecchio) return d
+            const ms = (x) => (x?.toMillis ? x.toMillis() : 0)
+            return ms(d.data().creatoIl) < ms(piuVecchio.data().creatoIl) ? d : piuVecchio
+          }, null)
+          batch.update(docCreazione.ref, {
+            settore,
+            colorePrese,
+            coloreGrado: coloreGrado || '',
+            stato,
+            note: note || null,
+            tracciatoreId: tracciatoreIdDaSalvare,
+            tracciatoreNome,
+            eseguitoDaUid: auth.currentUser?.uid || null,
+            eseguitoDaNome: tracciatoreLoggato?.nome || null,
           })
         }
       }

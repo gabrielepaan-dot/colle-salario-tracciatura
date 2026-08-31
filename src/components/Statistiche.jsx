@@ -64,12 +64,19 @@ function indiceGrado(colore) {
 // un andamento continuo invece di saltare i periodi vuoti.
 function costruisciAndamento(eventi, unita) {
   if (unita === 'mese') {
+    // La finestra "ultimi 6 mesi" si estende fino al mese dell'evento più
+    // recente se è nel futuro rispetto a oggi: durante il pre-apertura tutti
+    // gli eventi sono datati al giorno di apertura (mese prossimo) e
+    // altrimenti sparirebbero dal grafico.
+    const meseCorrente = new Date().toISOString().slice(0, 7)
+    const meseFine = eventi.reduce((m, e) => {
+      const k = e.dataEvento?.slice(0, 7)
+      return k && k > m ? k : m
+    }, meseCorrente)
+    const [anno, mese] = meseFine.split('-').map(Number)
     const chiavi = []
     for (let i = FINESTRA_ANDAMENTO_MESI - 1; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(1)
-      d.setMonth(d.getMonth() - i)
-      chiavi.push(d.toISOString().slice(0, 7))
+      chiavi.push(new Date(Date.UTC(anno, mese - 1 - i, 1)).toISOString().slice(0, 7))
     }
     const conteggio = {}
     chiavi.forEach((k) => (conteggio[k] = 0))
@@ -83,13 +90,20 @@ function costruisciAndamento(eventi, unita) {
     }))
   }
 
-  const oggi = new Date()
-  const inizioFinestra = new Date()
+  // Fine finestra = settimana di oggi, estesa alla settimana dell'evento più
+  // recente se è nel futuro (pre-apertura: eventi datati al giorno di
+  // apertura, che cade in una settimana successiva a quella corrente).
+  const settimanaCorrente = inizioSettimana(new Date().toISOString().slice(0, 10))
+  const fine = eventi.reduce((s, e) => {
+    if (!e.dataEvento) return s
+    const k = inizioSettimana(e.dataEvento)
+    return k > s ? k : s
+  }, settimanaCorrente)
+  const inizioFinestra = new Date(`${fine}T00:00:00`)
   inizioFinestra.setMonth(inizioFinestra.getMonth() - FINESTRA_ANDAMENTO_MESI)
 
   const chiavi = []
   let cursore = inizioSettimana(inizioFinestra.toISOString().slice(0, 10))
-  const fine = inizioSettimana(oggi.toISOString().slice(0, 10))
   while (cursore <= fine) {
     chiavi.push(cursore)
     const d = new Date(`${cursore}T00:00:00`)
