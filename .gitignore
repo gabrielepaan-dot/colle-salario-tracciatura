@@ -8,3 +8,5 @@ backup.json
 .DS_Store
 *serviceAccountKey*.json
 service-account*.json
+AUDIT_REPORT.md
+PROJECT_STATE.md
