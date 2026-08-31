@@ -32,6 +32,16 @@ function primaLettera(s) {
 // e tracciatoreNome: "Altri" al momento del salvataggio.
 const TRACCIATORE_ALTRI = '__altri__'
 
+// Etichette "a fascia" per i due campi più importanti e più facili da
+// confondere (colore prese vs grado): sfondo pieno, grassetto, un filo più
+// grandi delle altre label del form, con due tinte diverse per distinguerli
+// a colpo d'occhio. Le altre label (settore, data, note, tracciatore)
+// restano piccole e grigie di proposito, così questi due risaltano.
+const LABEL_PRESE =
+  'block text-sm font-bold uppercase tracking-wide text-gray-700 bg-gray-100 rounded-lg px-2.5 py-2 mb-2.5'
+const LABEL_GRADO =
+  'block text-sm font-bold uppercase tracking-wide text-navy bg-[#E6ECFB] rounded-lg px-2.5 py-2 mb-2.5'
+
 // mode: 'create' | 'update'
 // boulderEsistente: { id, settore, colorePrese, coloreGrado, stato, note, dataUltimoCambio } — richiesto se mode === 'update'
 // settoreIniziale: string — usato solo se mode === 'create' (settore già scelto, es. da un filtro attivo)
@@ -330,7 +340,7 @@ export default function BoulderForm({
 
           {/* Colore prese — multi-selezione in creazione, singola in modifica */}
           <div className="mb-4">
-            <p className="text-xs text-gray-400 mb-2">Colore prese</p>
+            <p className={LABEL_PRESE}>Colore prese</p>
             <div className="grid grid-cols-3 gap-2">
               {LISTA_COLORI_PRESE.map((c) => {
                 const attivo = mode === 'create' ? coloriPreseSelezionati.includes(c) : colorePrese === c
@@ -424,7 +434,9 @@ export default function BoulderForm({
                tracciatore indipendenti per riga. Sostituisce i campi singoli
                usati in modifica. */
             <div className="mb-4">
-              <p className="text-xs text-gray-400 mb-2">Grado e tracciatore per colore</p>
+              <p className={LABEL_GRADO}>
+                Grado <span className="font-normal normal-case text-navy/60">e tracciatore</span>
+              </p>
               {righeColori.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-6 border border-dashed border-gray-200 rounded-xl">
                   Seleziona uno o più colori qui sopra per iniziare.
@@ -518,7 +530,9 @@ export default function BoulderForm({
             <>
               {/* Colore grado */}
               <div className="mb-4">
-                <p className="text-xs text-gray-400 mb-2">Grado (facile → difficile)</p>
+                <p className={LABEL_GRADO}>
+                  Grado <span className="font-normal normal-case text-navy/60">· facile → difficile</span>
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {LISTA_COLORI_GRADO.map((g) => {
                     const attivo = coloreGrado === g
