@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { tipoDiSettore } from '../lib/colori'
+import { tipoDiSettore, ORDINE_GRADI } from '../lib/colori'
 import BoulderRow from './BoulderRow'
 import BoulderForm from './BoulderForm'
 import ConfermaDialog from './ConfermaDialog'
@@ -18,7 +18,11 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
   const [tracciatori, setTracciatori] = useState([])
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState(null)
-  const [ordine, setOrdine] = useState('asc')
+  // 'vecchi' | 'recenti' = ordine cronologico (per data ultimo cambio).
+  // 'grado' = dal più facile al più difficile; i blocchi senza grado
+  // finiscono in fondo. L'ordinamento per grado è fatto lato client perché
+  // il grado è un colore, non un valore ordinabile in Firestore.
+  const [ordine, setOrdine] = useState('vecchi')
   const [formAperto, setFormAperto] = useState(null)
   const { daEliminare, inAttesaAnnulla, erroreEliminazione, richiediEliminazione, annulla, conferma, annullaEliminazione } =
     useCancellazioneBoulder(() => carica(), tracciatoreLoggato)
@@ -31,7 +35,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
         collection(db, 'boulder'),
         where('settore', '==', settore),
         where('stato', '==', 'attiva'),
-        orderBy('dataUltimoCambio', ordine)
+        orderBy('dataUltimoCambio', 'desc')
       )
       const snap = await getDocs(q)
       setBoulders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
@@ -40,7 +44,22 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
       console.error(e)
     }
     setCaricamento(false)
-  }, [settore, ordine])
+  }, [settore])
+
+  // Query sempre in ordine cronologico decrescente; il riordino per la vista
+  // scelta è applicato qui, così cambiare "Ordina" non rifà la fetch.
+  const bouldersOrdinati = useMemo(() => {
+    if (ordine === 'vecchi') return [...boulders].reverse()
+    if (ordine === 'grado') {
+      const idx = (b) => {
+        const i = ORDINE_GRADI.indexOf(b.coloreGrado)
+        return i === -1 ? Number.POSITIVE_INFINITY : i
+      }
+      // boulders è già in data decrescente: resta il tiebreak a parità di grado.
+      return [...boulders].sort((a, b) => idx(a) - idx(b))
+    }
+    return boulders // 'recenti'
+  }, [boulders, ordine])
 
   useEffect(() => {
     carica()
@@ -84,23 +103,31 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
       </header>
 
       <div className="mb-4">
-        <p className="text-xs text-gray-400 mb-2">Ordina per data</p>
-        <div className="flex gap-2">
+        <p className="text-xs text-gray-400 mb-2">Ordina</p>
+        <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => setOrdine('desc')}
+            onClick={() => setOrdine('recenti')}
             className={`px-3 py-1.5 rounded-full text-sm border ${
-              ordine === 'desc' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+              ordine === 'recenti' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
             }`}
           >
             Più recenti
           </button>
           <button
-            onClick={() => setOrdine('asc')}
+            onClick={() => setOrdine('vecchi')}
             className={`px-3 py-1.5 rounded-full text-sm border ${
-              ordine === 'asc' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+              ordine === 'vecchi' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
             }`}
           >
             Meno recenti
+          </button>
+          <button
+            onClick={() => setOrdine('grado')}
+            className={`px-3 py-1.5 rounded-full text-sm border ${
+              ordine === 'grado' ? 'bg-navy text-white border-navy' : 'border-gray-200 text-gray-600'
+            }`}
+          >
+            Grado: facile → difficile
           </button>
         </div>
       </div>
@@ -126,7 +153,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
 
       {!caricamento && !errore && boulders.length > 0 && (
         <div className="rounded-2xl overflow-hidden border border-gray-200 divide-y divide-black/10">
-          {boulders.filter((b) => b.id !== inAttesaAnnulla?.id).map((b) => (
+          {bouldersOrdinati.filter((b) => b.id !== inAttesaAnnulla?.id).map((b) => (
             <BoulderRow
               key={b.id}
               boulder={b}
