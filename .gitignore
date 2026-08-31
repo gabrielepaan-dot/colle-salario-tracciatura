@@ -1,5 +1,7 @@
 node_modules
 dist
+.firebase
+backup.json
 .env
 .env.local
 *.log
