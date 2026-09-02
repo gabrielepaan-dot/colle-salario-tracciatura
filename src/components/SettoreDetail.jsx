@@ -158,7 +158,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
               key={b.id}
               boulder={b}
               cliccabile={!!tracciatoreLoggato}
-              onClick={() => setFormAperto({ mode: 'update', boulderEsistente: b })}
+              onModifica={(campo) => setFormAperto({ mode: 'update', boulderEsistente: b, campo })}
               mostraCestino={!!tracciatoreLoggato}
               onElimina={() => richiediEliminazione(b)}
               isAdmin={!!tracciatoreLoggato?.isAdmin}
@@ -188,6 +188,7 @@ export default function SettoreDetail({ tracciatoreLoggato }) {
         <BoulderForm
           mode={formAperto.mode}
           boulderEsistente={formAperto.boulderEsistente}
+          campo={formAperto.campo}
           settoreIniziale={settore}
           tipo={tipoDiSettore(settore)}
           tracciatoreLoggato={tracciatoreLoggato}

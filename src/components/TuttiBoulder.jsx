@@ -143,7 +143,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
               boulder={b}
               mostraSettore
               cliccabile={!!tracciatoreLoggato}
-              onClick={() => setFormAperto({ mode: 'update', boulderEsistente: b })}
+              onModifica={(campo) => setFormAperto({ mode: 'update', boulderEsistente: b, campo })}
               mostraCestino={!!tracciatoreLoggato}
               onElimina={() => richiediEliminazione(b)}
               isAdmin={!!tracciatoreLoggato?.isAdmin}
@@ -173,6 +173,7 @@ export default function TuttiBoulder({ tracciatoreLoggato }) {
         <BoulderForm
           mode={formAperto.mode}
           boulderEsistente={formAperto.boulderEsistente}
+          campo={formAperto.campo}
           tipo={formAperto.mode === 'update' ? tipoDiSettore(formAperto.boulderEsistente.settore) : tipoAttivo}
           tracciatoreLoggato={tracciatoreLoggato}
           tracciatori={tracciatori}

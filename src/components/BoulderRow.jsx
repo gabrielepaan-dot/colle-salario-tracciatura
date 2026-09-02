@@ -13,13 +13,43 @@ const SFONDO_RIGA_OVERRIDE = {
   bianco: '#FFFBEB',
 }
 
+// Ogni cella è un bersaglio indipendente: toccarla apre il pannello di
+// modifica di QUEL solo campo (vedi la prop `campo` di BoulderForm). Prima
+// era l'intera riga ad essere un unico bottone che apriva il form completo,
+// ed era facilissimo cambiare il colore prese volendo cambiare il grado.
+// Lo spazio "morto" tra una cella e l'altra non fa più niente, di proposito.
+function Cella({ cliccabile, onClick, etichetta, className, style, children }) {
+  if (!cliccabile) {
+    return (
+      <span className={className} style={style}>
+        {children}
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      aria-label={etichetta}
+      title={etichetta}
+      className={`${className} rounded-md hover:bg-black/5 active:bg-black/10 transition-colors`}
+      style={style}
+    >
+      {children}
+    </button>
+  )
+}
+
 // Riga densa "stile Excel" condivisa da Dettaglio settore e dalla vista
 // Filtri: l'intero sfondo è il vero colore prese del boulder, con testo
 // chiaro/scuro scelto per contrasto (non sempre "chiaro": alcuni gialli/
 // arancioni leggono meglio con testo scuro pur essendo colori "di brand"
 // pieni). mostraSettore aggiunge la colonna Settore, necessaria solo nella
 // vista Filtri dove i boulder arrivano da pareti diverse.
-export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick, mostraCestino, onElimina, isAdmin }) {
+export default function BoulderRow({ boulder, mostraSettore, cliccabile, onModifica, mostraCestino, onElimina, isAdmin }) {
   const { settore, colorePrese, coloreGrado, tracciatoreNome, dataUltimoCambio } = boulder
 
   const sfondoNormale = SFONDO_RIGA_OVERRIDE[colorePrese] || COLORI_PRESE[colorePrese] || '#374151'
@@ -29,20 +59,11 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
   // "Giallo old" è già un colore a sé stante (il nome lo dice), ma condivide
   // la stessa resa desaturata degli altri colori marcati old:true.
   const desaturato = !!boulder.old || colorePrese === 'giallo_old'
+  const modificabile = !!cliccabile && !!onModifica
 
   return (
     <div
-      role={cliccabile ? 'button' : undefined}
-      tabIndex={cliccabile ? 0 : undefined}
-      onClick={cliccabile ? onClick : undefined}
-      onKeyDown={
-        cliccabile
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') onClick()
-            }
-          : undefined
-      }
-      className={`flex items-center gap-2 px-3 py-2.5 ${cliccabile ? 'cursor-pointer active:opacity-80' : ''}`}
+      className="flex items-center gap-2 px-3 py-2.5"
       style={{
         background: sfondo,
         color: testo,
@@ -56,27 +77,49 @@ export default function BoulderRow({ boulder, mostraSettore, cliccabile, onClick
         </span>
       )}
 
-      <span className="font-bold uppercase text-xs tracking-wide truncate flex-1 min-w-14">
+      <Cella
+        cliccabile={modificabile}
+        onClick={() => onModifica('colorePrese')}
+        etichetta="Modifica colore prese"
+        className="font-bold uppercase text-xs tracking-wide truncate text-left flex-1 min-w-14 px-1 -mx-1 py-1 -my-1"
+      >
         {nomeColorePrese(colorePrese)}
         {boulder.old && <span className="font-normal normal-case"> · old</span>}
         {boulder.permanente && <span className="font-normal normal-case"> · fissa</span>}
-      </span>
+      </Cella>
 
-      <span className="flex items-center gap-1.5 shrink min-w-12 w-[6.5rem]">
+      <Cella
+        cliccabile={modificabile}
+        onClick={() => onModifica('tracciatore')}
+        etichetta="Modifica tracciatore"
+        className="flex items-center gap-1.5 shrink min-w-12 w-[6.5rem] px-1 -mx-1 py-1 -my-1"
+      >
         <Avatar nome={tracciatoreNome} size="sm" />
         <span className="text-xs truncate min-w-0" style={{ color: testo }}>
           {tracciatoreNome}
         </span>
-      </span>
+      </Cella>
 
-      <GradoStar coloreGrado={coloreGrado} size="md" />
+      <Cella
+        cliccabile={modificabile}
+        onClick={() => onModifica('coloreGrado')}
+        etichetta="Modifica grado"
+        className="shrink-0 flex items-center px-1.5 -mx-1 py-1.5 -my-1"
+      >
+        <GradoStar coloreGrado={coloreGrado} size="md" />
+      </Cella>
 
-      <span className="text-right shrink-0 w-14 leading-tight">
-        <p className="text-xs font-medium">{formattaDataCompatta(dataUltimoCambio)}</p>
-        <p className="text-[10px]" style={{ color: testoAttenuato }}>
+      <Cella
+        cliccabile={modificabile}
+        onClick={() => onModifica('data')}
+        etichetta="Modifica data"
+        className="text-right shrink-0 w-14 leading-tight px-1 -mx-1 py-1 -my-1"
+      >
+        <span className="block text-xs font-medium">{formattaDataCompatta(dataUltimoCambio)}</span>
+        <span className="block text-[10px]" style={{ color: testoAttenuato }}>
           {giorniFaCompatto(dataUltimoCambio)}
-        </p>
-      </span>
+        </span>
+      </Cella>
 
       {mostraCestino && (!boulder.permanente || isAdmin) && (
         <button

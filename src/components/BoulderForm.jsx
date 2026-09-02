@@ -42,17 +42,33 @@ const LABEL_PRESE =
 const LABEL_GRADO =
   'block text-sm font-bold uppercase tracking-wide text-navy bg-[#E6ECFB] rounded-lg px-2.5 py-2 mb-2.5'
 
+// Titolo del pannello quando è aperto su un solo campo (vedi prop `campo`).
+const TITOLO_CAMPO = {
+  colorePrese: 'Colore prese',
+  coloreGrado: 'Grado',
+  tracciatore: 'Tracciatore',
+  data: 'Data',
+  note: 'Note',
+}
+
 // mode: 'create' | 'update'
 // boulderEsistente: { id, settore, colorePrese, coloreGrado, stato, note, dataUltimoCambio } — richiesto se mode === 'update'
 // settoreIniziale: string — usato solo se mode === 'create' (settore già scelto, es. da un filtro attivo)
 // tipo: 'boulder' | 'corda' — contesto da cui è stato aperto il form: determina la
 // lista settori mostrata in creazione e il campo `tipo` salvato sui nuovi documenti.
 // In modifica non viene mai usato per cambiare il tipo di un boulder/corda esistente.
+// campo: 'colorePrese' | 'coloreGrado' | 'tracciatore' | 'data' | 'note' — solo in
+// modifica: apre il pannello sul SOLO campo toccato nella riga, invece che su tutto.
+// Toccare il grado e ritrovarsi davanti la griglia dei colori prese portava a
+// cambiare per sbaglio il campo sbagliato. Gli altri valori restano comunque negli
+// stati inizializzati da boulderEsistente, quindi il salvataggio li riscrive
+// identici: la logica di salvataggio qui sotto non cambia in base a `campo`.
 export default function BoulderForm({
   mode,
   boulderEsistente,
   settoreIniziale,
   tipo,
+  campo,
   tracciatoreLoggato,
   tracciatori,
   permanenteDefault,
@@ -66,7 +82,13 @@ export default function BoulderForm({
   const [old, setOld] = useState(boulderEsistente?.old || false)
   const [specialiAperto, setSpecialiAperto] = useState(() => isColoreSpeciale(boulderEsistente?.colorePrese))
   const [note, setNote] = useState(boulderEsistente?.note || '')
-  const [dataEvento, setDataEvento] = useState(oggiISO())
+  // In modifica la data parte da quella già salvata sul blocco, non da oggi:
+  // correggere il grado o il tracciatore è una correzione, non una nuova
+  // tracciatura, e non deve far "ringiovanire" il blocco (né spostarlo in cima
+  // all'ordinamento per data). La data cambia solo se la si tocca davvero.
+  const [dataEvento, setDataEvento] = useState(
+    mode === 'update' ? boulderEsistente?.dataUltimoCambio || oggiISO() : oggiISO()
+  )
   const [tracciatoreId, setTracciatoreId] = useState(() => {
     if (mode !== 'update') return tracciatoreLoggato?.id || ''
     if (boulderEsistente?.tracciatoreNome === 'Altri') return TRACCIATORE_ALTRI
@@ -74,6 +96,12 @@ export default function BoulderForm({
   })
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState(null)
+
+  // Campo su cui il pannello è "ristretto". Parte dalla prop (la cella toccata
+  // nella riga) ed è azzerabile dal link "Modifica tutto" in fondo, unica via
+  // per arrivare a campi che nella riga non hanno una cella (es. le note).
+  const [campoAttivo, setCampoAttivo] = useState(mode === 'update' ? campo || null : null)
+  const mostra = (sezione) => !campoAttivo || campoAttivo === sezione
 
   // Toggle visibile SOLO quando il form viene aperto dalla sezione admin
   // "Vie fisse" (permanenteDefault passato): nei flussi normali di
@@ -181,7 +209,11 @@ export default function BoulderForm({
       // arriva davvero a quella data — vedi dataEffettiva() in lib/date.js.
       const effettiva = dataEffettiva()
       const creatoIlDaSalvare = permanente ? serverTimestamp() : effettiva.timestamp
-      const dataDaSalvare = !permanente && effettiva.preApertura ? effettiva.dataISO : dataEvento
+      // L'aggancio alla data di apertura vale solo per le creazioni: in
+      // modifica la data è quella già sul blocco (o quella scelta a mano), e
+      // riscriverla con la data di apertura sarebbe una modifica non chiesta.
+      const dataDaSalvare =
+        mode === 'create' && !permanente && effettiva.preApertura ? effettiva.dataISO : dataEvento
 
       if (mode === 'create') {
         // Un boulder + un evento storico per ciascun colore selezionato:
@@ -311,13 +343,25 @@ export default function BoulderForm({
             <h2 className="text-lg font-bold text-navy">
               {mode === 'create'
                 ? tipo === 'corda' ? 'Nuova via' : 'Nuovo boulder'
+                : campoAttivo
+                ? TITOLO_CAMPO[campoAttivo]
                 : tipo === 'corda' ? 'Aggiorna via' : 'Aggiorna boulder'}
             </h2>
             <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
           </div>
 
+          {/* In un pannello mono-campo il settore non è né modificabile né
+              utile: al suo posto una riga di contesto che dice QUALE blocco si
+              sta modificando, altrimenti un pannello con le sole stelline del
+              grado non dice a chi appartengono. */}
+          {campoAttivo && (
+            <p className="text-xs text-gray-400 mb-4">
+              {primaLettera(nomeColorePrese(colorePrese))} · {settore}
+            </p>
+          )}
+
           {/* Settore — solo in creazione, non modificabile in aggiornamento */}
-          <div className="mb-4">
+          <div className={`mb-4 ${mostra('settore') ? '' : 'hidden'}`}>
             <p className="text-xs text-gray-400 mb-2">Settore</p>
             {mode === 'create' ? (
               <div className="grid grid-cols-2 gap-2">
@@ -339,7 +383,7 @@ export default function BoulderForm({
           </div>
 
           {/* Colore prese — multi-selezione in creazione, singola in modifica */}
-          <div className="mb-4">
+          <div className={`mb-4 ${mostra('colorePrese') ? '' : 'hidden'}`}>
             <p className={LABEL_PRESE}>Colore prese</p>
             <div className="grid grid-cols-3 gap-2">
               {LISTA_COLORI_PRESE.map((c) => {
@@ -529,7 +573,7 @@ export default function BoulderForm({
           ) : (
             <>
               {/* Colore grado */}
-              <div className="mb-4">
+              <div className={`mb-4 ${mostra('coloreGrado') ? '' : 'hidden'}`}>
                 <p className={LABEL_GRADO}>
                   Grado <span className="font-normal normal-case text-navy/60">· facile → difficile</span>
                 </p>
@@ -553,7 +597,7 @@ export default function BoulderForm({
               </div>
 
               {/* Tracciatore attribuito */}
-              <div className="mb-4">
+              <div className={`mb-4 ${mostra('tracciatore') ? '' : 'hidden'}`}>
                 <p className="text-xs text-gray-400 mb-2">Tracciatore</p>
                 <div className="flex flex-wrap gap-2">
                   {tracciatoriPerSelezione.map((t) => (
@@ -586,7 +630,7 @@ export default function BoulderForm({
           )}
 
           {/* Data */}
-          <div className="mb-4">
+          <div className={`mb-4 ${mostra('data') ? '' : 'hidden'}`}>
             <p className="text-xs text-gray-400 mb-2">Data</p>
             <input
               type="date"
@@ -597,7 +641,7 @@ export default function BoulderForm({
           </div>
 
           {/* Note */}
-          <div className="mb-4">
+          <div className={`mb-4 ${mostra('note') ? '' : 'hidden'}`}>
             <p className="text-xs text-gray-400 mb-2">Note (facoltative)</p>
             <textarea
               value={note}
@@ -644,6 +688,15 @@ export default function BoulderForm({
           >
             {testoBottone}
           </button>
+          {campoAttivo && (
+            <button
+              type="button"
+              onClick={() => setCampoAttivo(null)}
+              className="block mx-auto mt-3 text-xs text-gray-400 underline"
+            >
+              Modifica tutto
+            </button>
+          )}
         </div>
       </div>
     </div>
