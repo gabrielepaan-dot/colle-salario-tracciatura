@@ -276,33 +276,41 @@ export default function BoulderForm({
             ? 'Altri'
             : tracciatoriPerSelezione.find((t) => t.id === tracciatoreId)?.nome || ''
 
-        // Se la data inserita è precedente all'ultimo cambio registrato
-        // (correzione/inserimento retroattivo), non sovrascriviamo lo stato
-        // "corrente" mostrato in Home, per non far "tornare indietro" la
-        // card rispetto a un evento già più recente. La correzione dello
-        // storico invece va applicata comunque.
-        const eIlPiuRecente = dataDaSalvare >= (boulderEsistente.dataUltimoCambio || '')
-        if (eIlPiuRecente) {
-          const boulderRef = doc(db, 'boulder', boulderEsistente.id)
-          batch.update(boulderRef, {
-            settore,
-            colorePrese,
-            coloreGrado,
-            old: supportaOld(colorePrese) ? old : false,
-            stato,
-            note: note || null,
-            tracciatoreId: tracciatoreIdDaSalvare,
-            tracciatoreNome,
-            dataUltimoCambio: dataDaSalvare,
-          })
-        }
+        // Una data retroattiva viene salvata come tutte le altre. Qui c'era
+        // una guardia che saltava questo update quando la data scelta era
+        // precedente a `dataUltimoCambio`: aveva senso quando ogni modifica
+        // APPENDEVA un nuovo evento in `storico` e `boulder` era solo la
+        // proiezione dell'evento più recente (un inserimento nel passato non
+        // doveva far regredire la card, e la correzione restava comunque
+        // registrata nel nuovo evento). Da quando una modifica non crea più
+        // eventi, quel presupposto non esiste: non c'è nessun evento più
+        // recente da proteggere, e saltare l'update faceva sparire in
+        // silenzio la correzione (data inclusa, ma anche grado/colore/note
+        // toccati nella stessa schermata).
+        const boulderRef = doc(db, 'boulder', boulderEsistente.id)
+        batch.update(boulderRef, {
+          settore,
+          colorePrese,
+          coloreGrado,
+          old: supportaOld(colorePrese) ? old : false,
+          stato,
+          note: note || null,
+          tracciatoreId: tracciatoreIdDaSalvare,
+          tracciatoreNome,
+          dataUltimoCambio: dataDaSalvare,
+        })
 
         // Allinea l'evento di creazione in storico (il più vecchio, nel
-        // raro caso ce ne sia più d'uno per lo stesso blocco). Non tocca
-        // `dataEvento`: il blocco resta nell'andamento nel periodo in cui è
-        // stato tracciato, non in cui è stato corretto. Un blocco legacy
-        // senza storico non ha nulla da allineare. `eseguitoDaUid` viene
-        // riscritto con chi fa la correzione (richiesto dalle Rules).
+        // raro caso ce ne sia più d'uno per lo stesso blocco). Un blocco
+        // legacy senza storico non ha nulla da allineare. `eseguitoDaUid`
+        // viene riscritto con chi fa la correzione (richiesto dalle Rules).
+        // `dataEvento` si riscrive SOLO se la data è stata toccata davvero:
+        // correggere il grado non deve spostare il blocco nell'andamento nel
+        // tempo (resta nel periodo in cui è stato tracciato, non in cui è
+        // stato corretto), ma cambiare la data è esattamente il gesto con
+        // cui si dichiara quando è stato tracciato davvero — e le
+        // statistiche, che leggono `storico`, devono seguirlo.
+        const dataCambiata = dataDaSalvare !== (boulderEsistente.dataUltimoCambio || '')
         const snapStorico = await getDocs(
           query(collection(db, 'storico'), where('boulderId', '==', boulderEsistente.id))
         )
@@ -322,6 +330,7 @@ export default function BoulderForm({
             tracciatoreNome,
             eseguitoDaUid: auth.currentUser?.uid || null,
             eseguitoDaNome: tracciatoreLoggato?.nome || null,
+            ...(dataCambiata && { dataEvento: dataDaSalvare }),
           })
         }
       }
