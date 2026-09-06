@@ -54,17 +54,19 @@ export function tipoDiSettore(settore) {
 export const LISTA_COLORI_PRESE = Object.keys(COLORI_PRESE)
 export const LISTA_COLORI_GRADO = Object.keys(COLORI_GRADO)
 
-// Colori "prese" speciali: set chiuso di 5 valori (3 bicolore + 2 pieni),
+// Colori "prese" speciali: set chiuso di 6 valori (3 bicolore + 3 pieni),
 // separati dai 12 base perché usati più raramente. I bicolore sono resi come
 // swatch/sfondo con split diagonale hard-stop (due metà, nessuna sfumatura);
 // "giallo old" è un colore a sé stante (non un flag "old" su "giallo fluo"),
 // reso con lo stesso stile desaturato usato per gli altri colori marcati old.
+// "grigio" è più scuro di "bianco" (#9CA3AF) per restare distinguibile.
 export const COLORI_SPECIALI = {
   giallorosso: { nome: 'Giallorosso', tipo: 'bicolore', hex1: '#CBD90A', hex2: '#DC2626' },
   biancoceleste: { nome: 'Biancoceleste', tipo: 'bicolore', hex1: '#9CA3AF', hex2: '#0EA5E9' },
   verdenero: { nome: 'Verdenero', tipo: 'bicolore', hex1: '#14532D', hex2: '#111111' },
   giallo_old: { nome: 'Giallo old', tipo: 'pieno', hex: '#CBD90A', desaturato: true },
   mattone: { nome: 'Mattone', tipo: 'pieno', hex: '#A0522D' },
+  grigio: { nome: 'Grigio', tipo: 'pieno', hex: '#6B7280' },
 }
 
 export const LISTA_COLORI_SPECIALI = Object.keys(COLORI_SPECIALI)

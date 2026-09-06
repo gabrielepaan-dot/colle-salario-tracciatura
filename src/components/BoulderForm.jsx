@@ -405,7 +405,7 @@ export default function BoulderForm({
               })}
             </div>
 
-            {/* Speciali: set chiuso di 5 valori (3 bicolore + 2 pieni), meno
+            {/* Speciali: set chiuso di 6 valori (3 bicolore + 3 pieni), meno
                 frequenti dei 12 base — accordion chiuso di default, aperto
                 automaticamente solo se il colore già selezionato è uno di questi. */}
             <button
