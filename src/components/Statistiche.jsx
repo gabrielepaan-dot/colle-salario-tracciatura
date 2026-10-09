@@ -21,37 +21,36 @@ const PERIODI = [
   { id: 'sempre', label: 'Sempre' },
 ]
 
-// Finestra fissa per il grafico "Andamento nel tempo": ultimi 6 mesi,
-// indipendente dal selettore "periodo" qui sopra (quello resta solo per la
-// classifica tracciatori, come da spec).
-const FINESTRA_ANDAMENTO_MESI = 6
+const SENZA_GRADO = 'senza grado'
+
+const RE_DATA_ISO = /^\d{4}-\d{2}-\d{2}/
+
+// 'YYYY-MM-DD' nel fuso LOCALE. Non usare toISOString() per questo: converte
+// in UTC, e in Italia la mezzanotte locale diventa le 22/23 del giorno prima
+// — le chiavi delle settimane finivano di domenica e, sommando 7 giorni a
+// ogni passo, slittavano indietro di un giorno, così quasi nessun evento
+// cadeva nel bucket giusto (curva settimanale quasi tutta a zero).
+function isoLocale(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const gg = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${gg}`
+}
 
 function inizioPeriodo(periodo) {
-  const ora = new Date()
-  if (periodo === 'settimana') {
-    const d = new Date(ora)
-    d.setDate(d.getDate() - 7)
-    return d.toISOString().slice(0, 10)
-  }
-  if (periodo === 'mese') {
-    const d = new Date(ora)
-    d.setMonth(d.getMonth() - 1)
-    return d.toISOString().slice(0, 10)
-  }
-  if (periodo === 'anno') {
-    const d = new Date(ora)
-    d.setFullYear(d.getFullYear() - 1)
-    return d.toISOString().slice(0, 10)
-  }
-  return null // 'sempre'
+  const d = new Date()
+  if (periodo === 'settimana') d.setDate(d.getDate() - 7)
+  else if (periodo === 'mese') d.setMonth(d.getMonth() - 1)
+  else if (periodo === 'anno') d.setFullYear(d.getFullYear() - 1)
+  else return null // 'sempre'
+  return isoLocale(d)
 }
 
 // Lunedì della settimana che contiene dataStr ('YYYY-MM-DD'), come 'YYYY-MM-DD'.
 function inizioSettimana(dataStr) {
-  const d = new Date(`${dataStr}T00:00:00`)
-  const giorniDaLunedi = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - giorniDaLunedi)
-  return d.toISOString().slice(0, 10)
+  const [a, m, g] = dataStr.slice(0, 10).split('-').map(Number)
+  const d = new Date(a, m - 1, g)
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  return isoLocale(d)
 }
 
 function indiceGrado(colore) {
@@ -59,65 +58,82 @@ function indiceGrado(colore) {
   return i === -1 ? null : i
 }
 
-// Costruisce i bucket (settimana o mese) degli ultimi FINESTRA_ANDAMENTO_MESI
-// mesi, riempiendo anche i bucket senza eventi (0), così il grafico mostra
-// un andamento continuo invece di saltare i periodi vuoti.
+// Costruisce i bucket (settimana o mese) dal primo periodo con un blocco
+// tracciato fino a quello corrente (o a quello dell'evento più recente, se
+// nel futuro), riempiendo con 0 i periodi intermedi senza eventi: il grafico
+// parte da quando si è iniziato davvero a tracciare invece di mostrare mesi
+// vuoti prima. Ogni punto è il totale di blocchi del periodo.
 function costruisciAndamento(eventi, unita) {
-  if (unita === 'mese') {
-    // La finestra "ultimi 6 mesi" si estende fino al mese dell'evento più
-    // recente se è nel futuro rispetto a oggi: durante il pre-apertura tutti
-    // gli eventi sono datati al giorno di apertura (mese prossimo) e
-    // altrimenti sparirebbero dal grafico.
-    const meseCorrente = new Date().toISOString().slice(0, 7)
-    const meseFine = eventi.reduce((m, e) => {
-      const k = e.dataEvento?.slice(0, 7)
-      return k && k > m ? k : m
-    }, meseCorrente)
-    const [anno, mese] = meseFine.split('-').map(Number)
-    const chiavi = []
-    for (let i = FINESTRA_ANDAMENTO_MESI - 1; i >= 0; i--) {
-      chiavi.push(new Date(Date.UTC(anno, mese - 1 - i, 1)).toISOString().slice(0, 7))
-    }
-    const conteggio = {}
-    chiavi.forEach((k) => (conteggio[k] = 0))
-    eventi.forEach((e) => {
-      const k = e.dataEvento?.slice(0, 7)
-      if (conteggio[k] !== undefined) conteggio[k]++
-    })
-    return chiavi.map((k) => ({
-      etichetta: new Date(`${k}-01T00:00:00`).toLocaleDateString('it-IT', { month: 'short', year: '2-digit' }),
-      conteggio: conteggio[k],
-    }))
-  }
+  const date = eventi.map((e) => e.dataEvento).filter((d) => typeof d === 'string' && RE_DATA_ISO.test(d))
+  if (date.length === 0) return []
+  const oggi = isoLocale(new Date())
+  const primaData = date.reduce((min, d) => (d < min ? d : min))
+  const ultimaData = date.reduce((max, d) => (d > max ? d : max), oggi)
 
-  // Fine finestra = settimana di oggi, estesa alla settimana dell'evento più
-  // recente se è nel futuro (pre-apertura: eventi datati al giorno di
-  // apertura, che cade in una settimana successiva a quella corrente).
-  const settimanaCorrente = inizioSettimana(new Date().toISOString().slice(0, 10))
-  const fine = eventi.reduce((s, e) => {
-    if (!e.dataEvento) return s
-    const k = inizioSettimana(e.dataEvento)
-    return k > s ? k : s
-  }, settimanaCorrente)
-  const inizioFinestra = new Date(`${fine}T00:00:00`)
-  inizioFinestra.setMonth(inizioFinestra.getMonth() - FINESTRA_ANDAMENTO_MESI)
+  const chiaveDi = unita === 'mese' ? (d) => d.slice(0, 7) : inizioSettimana
+  const chiaveCorrente = chiaveDi(oggi)
 
   const chiavi = []
-  let cursore = inizioSettimana(inizioFinestra.toISOString().slice(0, 10))
-  while (cursore <= fine) {
-    chiavi.push(cursore)
-    const d = new Date(`${cursore}T00:00:00`)
-    d.setDate(d.getDate() + 7)
-    cursore = d.toISOString().slice(0, 10)
+  if (unita === 'mese') {
+    let [a, m] = primaData.slice(0, 7).split('-').map(Number)
+    const fine = ultimaData.slice(0, 7)
+    for (;;) {
+      const k = `${a}-${String(m).padStart(2, '0')}`
+      if (k > fine) break
+      chiavi.push(k)
+      m++
+      if (m > 12) { m = 1; a++ }
+    }
+  } else {
+    const fine = inizioSettimana(ultimaData)
+    let cursore = inizioSettimana(primaData)
+    while (cursore <= fine) {
+      chiavi.push(cursore)
+      const [a, m, g] = cursore.split('-').map(Number)
+      cursore = isoLocale(new Date(a, m - 1, g + 7))
+    }
   }
+
   const conteggio = {}
   chiavi.forEach((k) => (conteggio[k] = 0))
-  eventi.forEach((e) => {
-    if (!e.dataEvento) return
-    const k = inizioSettimana(e.dataEvento)
+  date.forEach((d) => {
+    const k = chiaveDi(d)
     if (conteggio[k] !== undefined) conteggio[k]++
   })
-  return chiavi.map((k) => ({ etichetta: formattaDataCompatta(k), conteggio: conteggio[k] }))
+
+  return chiavi.map((k) => {
+    const inCorso = k === chiaveCorrente
+    let etichetta, etichettaEstesa
+    if (unita === 'mese') {
+      const d = new Date(`${k}-01T00:00:00`)
+      etichetta = d.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' })
+      etichettaEstesa = d.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
+    } else {
+      etichetta = formattaDataCompatta(`${k}T00:00:00`)
+      etichettaEstesa = `Settimana dal ${etichetta}`
+    }
+    if (inCorso) etichettaEstesa += ' (in corso)'
+    return { etichetta, etichettaEstesa, conteggio: conteggio[k], inCorso }
+  })
+}
+
+// Tooltip della classifica: solo i gradi effettivamente presenti, più il
+// totale (quello di default elencava tutti gli 8 gradi, anche a 0).
+function TooltipClassifica({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const riga = payload[0].payload
+  const voci = payload.filter((p) => p.value > 0)
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs shadow-sm">
+      <p className="font-bold text-navy mb-1">{label} · {riga.totale}</p>
+      {voci.map((p) => (
+        <p key={p.dataKey} className="flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm border border-gray-200" style={{ backgroundColor: p.color }} />
+          {p.dataKey}: {p.value}
+        </p>
+      ))}
+    </div>
+  )
 }
 
 // Barra a scala colori con un marcatore alla posizione media (0-7, può
@@ -264,12 +280,28 @@ export default function Statistiche({ tracciatoreLoggato }) {
       perTracciatore[nome].totale++
       if (e.coloreGrado && perTracciatore[nome][e.coloreGrado] !== undefined) {
         perTracciatore[nome][e.coloreGrado]++
+      } else {
+        // Senza grado (o grado sconosciuto): prima non entravano in nessuna
+        // pila, e la barra risultava più corta del totale del tracciatore.
+        perTracciatore[nome][SENZA_GRADO] = (perTracciatore[nome][SENZA_GRADO] || 0) + 1
       }
     })
     return Object.values(perTracciatore).sort((a, b) => b.totale - a.totale)
   }, [eventiCompleti, periodo])
 
   const andamento = useMemo(() => costruisciAndamento(eventiCompleti, unitaAndamento), [eventiCompleti, unitaAndamento])
+
+  // Riepilogo sotto il titolo: totale nel grafico e media per periodo,
+  // calcolata solo sui periodi conclusi (quello in corso è parziale e
+  // abbasserebbe la media); se c'è solo il periodo in corso si usa quello.
+  const riepilogoAndamento = useMemo(() => {
+    if (andamento.length === 0) return null
+    const totale = andamento.reduce((s, p) => s + p.conteggio, 0)
+    const conclusi = andamento.filter((p) => !p.inCorso)
+    const base = conclusi.length > 0 ? conclusi : andamento
+    const media = base.reduce((s, p) => s + p.conteggio, 0) / base.length
+    return { totale, media: Math.round(media * 10) / 10, inizio: andamento[0].etichetta }
+  }, [andamento])
 
   // Grado medio e settore preferito per tracciatore, su TUTTO lo storico
   // disponibile (non limitato al periodo della classifica sopra).
@@ -434,16 +466,35 @@ export default function Statistiche({ tracciatoreLoggato }) {
                 </button>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 mb-2">Ultimi 6 mesi</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={andamento}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="etichetta" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="conteggio" stroke="#0c1445" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            {riepilogoAndamento === null ? (
+              <p className="text-center text-gray-400 text-sm py-6">Nessun blocco tracciato.</p>
+            ) : (
+              <>
+                <p className="text-[11px] text-gray-400 mb-2">
+                  Dal {riepilogoAndamento.inizio} · {riepilogoAndamento.totale} totali · media{' '}
+                  {riepilogoAndamento.media} a {unitaAndamento === 'mese' ? 'mese' : 'settimana'}
+                </p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={andamento} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="etichetta" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={16} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      labelFormatter={(_, payload) => payload?.[0]?.payload?.etichettaEstesa ?? ''}
+                      formatter={(valore) => [valore, 'Blocchi']}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="conteggio"
+                      stroke="#0c1445"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: '#0c1445' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </>
+            )}
           </section>
 
           {/* Durata media di un blocco prima della rimozione, per tipo */}
@@ -492,10 +543,11 @@ export default function Statistiche({ tracciatoreLoggato }) {
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="nome" tick={{ fontSize: 12 }} width={80} />
-                  <Tooltip />
+                  <Tooltip content={<TooltipClassifica />} cursor={{ fill: 'rgba(12,20,69,0.05)' }} />
                   {ORDINE_GRADI.map((g) => (
                     <Bar key={g} dataKey={g} stackId="a" fill={COLORI_GRADO[g]} />
                   ))}
+                  <Bar dataKey={SENZA_GRADO} stackId="a" fill="#D1D5DB" />
                 </BarChart>
               </ResponsiveContainer>
             )}
